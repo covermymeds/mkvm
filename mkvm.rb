@@ -1,4 +1,8 @@
 #!/usr/bin/env ruby
+# Copyright 2014, CoverMyMeds, LLC
+# Author: Scott Merrill <smerrill@covermymeds.com>
+# Released under the terms of the GPL version 2
+#   http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt
 require 'rubygems'
 gem 'rbvmomi', '1.6.0'
 require 'fileutils'
