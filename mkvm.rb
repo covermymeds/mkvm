@@ -249,6 +249,7 @@ if options['make_iso']
 	ks_line="ks=#{options['url']} noverifyssl ksdevice=eth0 ip=#{options['ip']} netmask=#{options['netmask']} gateway=#{options['gateway']} hostname=#{hostname}.#{options['domain']} dns=#{options['dns']} APP_ENV=#{options['app_env']}"
 	# add the APP_ID, if one was supplied
 	ks_line += " APP_ID=#{options['app_id']}" if options['app_id']
+	ks_line += " SDB" if options['sdb']
 
 	text = IO.read( "#{tmp_dir}/isolinux/isolinux.cfg" )
 	text.gsub!(/KICKSTART_PARMS/, ks_line)
