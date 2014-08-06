@@ -17,11 +17,13 @@ require 'yaml'
 options = {
 	'username'   => ENV['USER'],
 	'insecure'   => true,
-	'dir'        => '.',
+	'dir'        => './isolinux',
 	'make_iso'   => true,
 	'upload_iso' => true,
 	'make_vm'    => true,
 	'power_on'   => true,
+	'major_rel'  => '6',
+	'ksdevice'   => 'eth0',
 	'vlan'       => 'Production',
 }
 
@@ -31,10 +33,15 @@ if File.exists? Dir.home + "/.mkvm.yaml"
 	options.merge!(user_options)
 end
 
+# Override the ksdevice based on the major release
+if "#{options['major_rel']}".eql?('7')
+	options['ksdevice'] = 'link'
+end
+
 templates = {
-	'tiny'   => [1,  512, 14680064],
-	'small'  => [1, 1024, 15728640],
-	'medium' => [1, 2048, 15728640],
+	'tiny'   => [1, 1024, 14680064],
+	'small'  => [1, 1536, 15728640],
+	'medium' => [2, 2048, 15728640],
 	'large'  => [2, 4096, 15728640],
 	'xlarge' => [2, 8192, 15728640],
 }
@@ -110,6 +117,9 @@ optparse = OptionParser.new do|opts|
 	opts.on( '--isostore ISOSTORE', "vSphere ISO store to use (#{options['iso_store']})") do |x|
 		options['isostore'] = x
 	end
+	opts.on( '-k', '--ksdevice TYPE', "ksdevice type to use (#{options['ksdevice']})") do |x|
+		options['ksdevice'] = x
+	end
 	opts.on( '-i', '--ip ADDRESS', 'IP address') do |x|
 		options['ip'] = x
 	end
@@ -121,6 +131,9 @@ optparse = OptionParser.new do|opts|
 	end
 	opts.on( '-d', '--dns DNS1{,DNS2,...}', "DNS server(s) to use (#{options['dns']})") do |x|
 		options['dns'] = x
+	end
+	opts.on( '-r', '--major_rel VERSION', "Major OS release to use (#{options['major_rel']})") do |x|
+		options['major_rel'] = x
 	end
 	opts.on( '--app-env APP_ENV', "APP_ENV (#{options['app_env']})") do |x|
 		options['app_env'] = x
@@ -189,6 +202,9 @@ if hostname =~ /\./
 	abort 'The hostname should not contain dots'
 end
 
+# grab the dirname of the isolinux path
+basedir = File.dirname(options['dir'])
+
 # perform a few sanity checks on the network parameters
 options['ip'] = get_address( hostname ) unless options['ip']
 abort "ERROR: No IP supplied, and no DNS for #{hostname}" unless options['ip']
@@ -235,33 +251,44 @@ debug( 'INFO', "sdb: #{options['sdb']}" )
 # TODO: validate the VLAN
 debug( 'INFO', "VLAN: #{options['vlan']}" )
 
+# Generate the proper Nameserver string based on major_rel
+nameserver_string = "dns=#{options['dns']}"
+
+if "#{options['major_rel']}".eql?('7')
+       nameserver_string =  options['dns'].split(',').collect { |x| "nameserver=" + x }.join(" ") 
+end
+
+
 # build the ISO
 if options['make_iso']
 	isoname = "#{hostname}.iso"
-	tmp_dir = "#{options['dir']}/tmp/#{hostname}"
+	tmp_dir = "#{basedir}/tmp/#{hostname}"
 	# TODO: handle exceptions
 	FileUtils.mkdir_p tmp_dir
 
 	# create the ISO template directory
-	FileUtils.cp_r "#{options['dir']}/isolinux", tmp_dir
+	FileUtils.cp_r options['dir'], "#{tmp_dir}/isolinux"
 
 	# build our kickstart line
-	ks_line="ks=#{options['url']} noverifyssl ksdevice=eth0 ip=#{options['ip']} netmask=#{options['netmask']} gateway=#{options['gateway']} hostname=#{hostname}.#{options['domain']} dns=#{options['dns']} APP_ENV=#{options['app_env']}"
+	ks_line="ks=#{options['url']} noverifyssl ksdevice=#{options['ksdevice']} ip=#{options['ip']} netmask=#{options['netmask']} gateway=#{options['gateway']} hostname=#{hostname}.#{options['domain']} #{nameserver_string} APP_ENV=#{options['app_env']}"
+
 	# add the APP_ID, if one was supplied
 	ks_line += " APP_ID=#{options['app_id']}" if options['app_id']
 	ks_line += " SDB" if options['sdb']
+
+	debug( 'INFO', "#{ks_line}")
 
 	text = IO.read( "#{tmp_dir}/isolinux/isolinux.cfg" )
 	text.gsub!(/KICKSTART_PARMS/, ks_line)
 	IO.write( "#{tmp_dir}/isolinux/isolinux.cfg", text )
 
-	system( "mkisofs -quiet -o #{options['dir']}/#{isoname} -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -J -R -V '#{hostname}' #{tmp_dir}" )
+	system( "mkisofs -quiet -o #{basedir}/#{isoname} -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -J -R -V '#{hostname}' #{tmp_dir}" )
 
 	# clean up after ourselves
 	FileUtils.rm_rf "#{tmp_dir}"
-	FileUtils.chmod_R 0755, "#{options['dir']}/#{isoname}"
+	FileUtils.chmod_R 0755, "#{basedir}/#{isoname}"
 
-	debug( 'INFO', "#{options['dir']}/#{isoname} created" )
+	debug( 'INFO', "#{basedir}/#{isoname} created" )
 end
 
 # stop here if we're not doing anything with ESX
@@ -290,7 +317,7 @@ if options['upload_iso']
 	isostore = dc.find_datastore(options['iso_store'])
 
 	debug( 'INFO', "Uploading #{hostname}.iso to #{options['iso_store']}" )
-	isostore.upload "/#{hostname}.iso", "#{options['dir']}/#{hostname}.iso"
+	isostore.upload "/#{hostname}.iso", "#{basedir}/#{hostname}.iso"
 end
 
 cluster = dc.hostFolder.children.find { |x| x.name == options['cluster'] } or abort "vSphere cluster #{options['cluster']} not found"

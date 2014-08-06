@@ -35,6 +35,8 @@ Usage: mkvm.rb [options] hostname
         --[no-]insecure              Do not validate vSphere SSL certificate (true)
         --datastore DATASTORE        vSphere datastore regex to use
         --isostore ISOSTORE          vSphere ISO store to use
+    -r, --major_rel VERSION          The OS major release version (6)
+    -k, --ksdevice TYPE              The network device type (eth0)
     -i, --ip ADDRESS                 IP address
     -g, --gateway GATEWAY            Gateway address
     -m, --netmask NETMASK            Subnet mask
@@ -42,7 +44,7 @@ Usage: mkvm.rb [options] hostname
     -e, --env APP_ENV                APP_ENV
     -a, --app APP_ID                 APP_ID
         --url URL                    Kickstart URL
-        --dir DIR                    Directory containing isolinux template (.)
+        --dir DIR                    Directory containing isolinux template (./isolinux)
         --domain DOMAIN              DNS domain to append to hostname
     -t, --template TEMPLATE          VM template: tiny, small, medium, large, xlarge
         --custom cpu,mem,sda         CPU, Memory, and /dev/sda for VM
@@ -66,7 +68,7 @@ Most of the arguments should be self-explanatory, but a few merit discussion.
 * **--gateway**: this is the default route to use for this VM.  It will be used for the Kickstart process, as well as for the resultant VM once built.  If not specified, it defaults to the .1 address in the same network as the IP of the VM.  Thus, if the VM IP is 192.168.1.5 and no gateway is specified, `mkvm.rb` will use 192.168.1.1.
 * **--app-env**: this is a value that gets added to the Kickstart command line. Your Kickstart process can parse this option and act accordingly. We use this to define a custom Puppet fact for whether the server is production, testing, development, etc.
 * **--app-id**: this is an optional value that, if present, gets added to the Kickstart command line. Your Kickstart process can parse this option and act accordingly. We use this to define a custom Puppet fact that our applications can act upon.
-* **--dir**: this is the directory that contains your `isolinux` directory. The `isolinux.cfg` file in this directory is parsed by `mkvm.rb` and is expected to have specific tokens that will be replaced.
+* **--dir**: this is the path to your `isolinux` directory. The `isolinux.cfg` file in this directory is parsed by `mkvm.rb` and is expected to have specific tokens that will be replaced.
 * **--vlan**: this is the full name of the VLAN to which the VM will be assigned. You may need to wrap this option in quotes.
 
 ## User Defaults
@@ -95,9 +97,9 @@ mkvm knows about five pre-defined VM sizes:
 
 | name | vCPU | Memory | /dev/sda |
 | :----: | :----: | :------: | :--------: |
-| tiny | 1 | 512 | 14GB |
-| small | 1 | 1024 | 15GB |
-| medium | 1 | 2048 | 15GB |
+| tiny | 1 | 1024 | 14GB |
+| small | 1 | 1536 | 15GB |
+| medium | 2 | 2048 | 15GB |
 | large | 2 | 4096 | 15GB |
 | xlarge | 2 | 8192 | 15GB |
 
