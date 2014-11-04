@@ -27,7 +27,8 @@ Finally, you'll need a copy of the [isolinux](http://www.syslinux.org/wiki/index
 ```shell
 Usage: mkvm.rb [options] hostname
 
-    -u, --user USER                  vSphere user name ($USER)
+VSphere options:
+    -u, --user USER                  vSphere user name
     -p, --password PASSWORD          vSphere password
     -H, --host HOSTNAME              vSphere host
     -D, --dc DATACENTER              vSphere data center
@@ -35,25 +36,31 @@ Usage: mkvm.rb [options] hostname
         --[no-]insecure              Do not validate vSphere SSL certificate (true)
         --datastore DATASTORE        vSphere datastore regex to use
         --isostore ISOSTORE          vSphere ISO store to use
-    -r, --major_rel VERSION          The OS major release version (6)
-    -k, --ksdevice TYPE              The network device type (eth0)
+
+Kickstart options:
+    -k, --ksdevice TYPE              ksdevice type to use (eth0)
     -i, --ip ADDRESS                 IP address
     -g, --gateway GATEWAY            Gateway address
-    -m, --netmask NETMASK            Subnet mask
-    -d, --dns DNS1{,DNS2,...}        Comma-separated list of DNS servers
-    -e, --env APP_ENV                APP_ENV
-    -a, --app APP_ID                 APP_ID
+    -m, --netmask NETMASK            Subnet mask (255.255.255.0)
+    -d, --dns DNS1{,DNS2,...}        DNS server(s) to use (192.168.135.15,192.168.135.16)
+    -r, --major_rel VERSION          Major OS release to use (6)
+        --app-env APP_ENV            APP_ENV
+        --app-id APP_ID              APP_ID
         --url URL                    Kickstart URL
         --dir DIR                    Directory containing isolinux template (./isolinux)
         --domain DOMAIN              DNS domain to append to hostname
-    -t, --template TEMPLATE          VM template: tiny, small, medium, large, xlarge
-        --custom cpu,mem,sda         CPU, Memory, and /dev/sda for VM
-        --sdb [KB]                   Size of optional /dev/sdb in KB (10485760)
+
+VM options:
+    -t, --template TEMPLATE          VM template: small, medium, large, xlarge
+        --custom cpu,mem,sda         CPU, Memory, and /dev/sda
+        --sdb [KB]                   Size of optional /dev/sdb (10G)
         --vlan VLAN                  VLAN name
         --[no-]iso                   Build ISO (true)
         --[no-]upload                Upload the ISO to the ESX cluster (true)
         --[no-]vm                    Build the VM (true)
         --[no-]power                 Power on the VM after building it (true)
+
+General options:
     -v, --debug                      Verbose output
     -h, --help                       Display this screen
 ```
@@ -70,6 +77,12 @@ Most of the arguments should be self-explanatory, but a few merit discussion.
 * **--app-id**: this is an optional value that, if present, gets added to the Kickstart command line. Your Kickstart process can parse this option and act accordingly. We use this to define a custom Puppet fact that our applications can act upon.
 * **--dir**: this is the path to your `isolinux` directory. The `isolinux.cfg` file in this directory is parsed by `mkvm.rb` and is expected to have specific tokens that will be replaced.
 * **--vlan**: this is the full name of the VLAN to which the VM will be assigned. You may need to wrap this option in quotes.
+
+Arguments that accept sizes can pass human-friendly suffixes:
+* K = Kebibytes
+* M = Mebibytes
+* G = Gibibytes
+* T = Tebibytes
 
 ## User Defaults
 If a file `.mkvm.yaml` exists in the user's home directory, it will be loaded and the values found therein will be used for defaults. These defauls can still be overridden by command-line switches.
@@ -93,31 +106,30 @@ vlan: Production
 See `mkvm.yaml.sample` for a full example.
 
 ## Templates
-mkvm knows about five pre-defined VM sizes:
+mkvm knows about four pre-defined VM sizes:
 
 | name | vCPU | Memory | /dev/sda |
 | :----: | :----: | :------: | :--------: |
-| tiny | 1 | 1024 | 14GB |
-| small | 1 | 1536 | 15GB |
-| medium | 2 | 2048 | 15GB |
-| large | 2 | 4096 | 15GB |
-| xlarge | 2 | 8192 | 15GB |
+| small | 1 | 1G | 15GB |
+| medium | 2 | 2G | 15GB |
+| large | 2 | 4G | 15GB |
+| xlarge | 2 | 8G | 15GB |
 
 ## Examples
-To create a tiny VM named foobar:
+To create a small VM named foobar:
 ```shell
-$ ./mkvm.rb -t tiny foobar
+$ ./mkvm.rb -t small foobar
 ```
 This assumes that a fully-qualified domain name for foobar is already defined in DNS.
 
-To create a tiny VM named foobar with a specific IP address:
+To create a small VM named foobar with a specific IP address:
 ```shell
-$ ./mkvm.rb -t tiny -i 192.168.100.5 foobar
+$ ./mkvm.rb -t small -i 192.168.100.5 foobar
 ```
 
 To create a custom VM named foobar with 3 vCPUs, 3 GB RAM, a 30 GB /dev/sda, a specific IP address, and include a 100GB /dev/sdb disk:
 ```bash
-$ ./mkvm.rb --custom 3,3072,31457280 -i 192.168.100.5 --sdb 104857600 foobar
+$ ./mkvm.rb --custom 3,3G,30G -i 192.168.100.5 --sdb 100G foobar
 ```
 
 ## License

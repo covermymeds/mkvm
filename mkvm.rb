@@ -39,11 +39,10 @@ if "#{options['major_rel']}".eql?('7')
 end
 
 templates = {
-	'tiny'   => [1, 1024, 14680064],
-	'small'  => [1, 1536, 15728640],
-	'medium' => [2, 2048, 15728640],
-	'large'  => [2, 4096, 15728640],
-	'xlarge' => [2, 8192, 15728640],
+	'small'  => [1, '1G', '15G'],
+	'medium' => [2, '2G', '15G'],
+	'large'  => [2, '4G', '15G'],
+	'xlarge' => [2, '8G', '15G'],
 }
 
 hostname = nil
@@ -52,6 +51,32 @@ custom = nil
 $debug = false
 
 ## STOP EDITING ##
+
+def parse_size(size, target_unit = 'K')
+	if size =~ /^[0-9.]+$/
+		# size was an integer or a float 
+		# assume user knows what they are doing
+		return size
+	end
+	# otherwise, get the input base unit
+	unit = size[-1,1]
+	input_size = size.chomp(unit)
+	# if the input unit is the same as the target unit,
+	# give them back what they gave us
+	if unit == target_unit
+		return input_size.to_int
+	end
+	# convert input size to Kibibytes
+	@hash = { 'K' => 1, 'M' => 1024, 'G' => 1048576, 'T' => 1073741824 }
+	if @hash.include? unit
+		k = size.to_f*@hash[unit]
+	else
+		abort "Unit #{unit} makes no sense!"
+	end
+	# compute output size
+	o = (k / @hash[target_unit]).to_int
+	return o
+end
 
 # enable debug output
 def debug(prefix, msg)
@@ -92,7 +117,9 @@ end
 _self = File.basename($0)
 # parse our command-line options
 optparse = OptionParser.new do|opts|
-	opts.banner = "Usage: #{_self} [options] hostname\n\n"
+	opts.banner = "Usage: #{_self} [options] hostname"
+	opts.separator ''
+	opts.separator 'VSphere options:'
 	opts.on( '-u', '--user USER', "vSphere user name (#{options['username']})") do |x|
 		options['username'] = x
 	end
@@ -117,6 +144,8 @@ optparse = OptionParser.new do|opts|
 	opts.on( '--isostore ISOSTORE', "vSphere ISO store to use (#{options['iso_store']})") do |x|
 		options['isostore'] = x
 	end
+	opts.separator ''
+	opts.separator 'Kickstart options:'
 	opts.on( '-k', '--ksdevice TYPE', "ksdevice type to use (#{options['ksdevice']})") do |x|
 		options['ksdevice'] = x
 	end
@@ -150,14 +179,16 @@ optparse = OptionParser.new do|opts|
 	opts.on( '--domain DOMAIN', "DNS domain to append to hostname (#{options['domain']})") do |x|
 		options['domain'] = x
 	end
-	opts.on( '-t', '--template TEMPLATE', "VM template: tiny, small, medium, large, xlarge") do |x|
+	opts.separator ''
+	opts.separator 'VM options:'
+	opts.on( '-t', '--template TEMPLATE', "VM template: small, medium, large, xlarge") do |x|
 		template = x
 	end
-	opts.on( '--custom cpu,mem,sda', Array, 'CPU, Memory, and /dev/sda for VM' ) do |x|
+	opts.on( '--custom cpu,mem,sda', Array, 'CPU, Memory, and /dev/sda' ) do |x|
 		custom = x
 	end
-	opts.on( '--sdb [KB]', 'Size of optional /dev/sdb in KB (10485760)' ) do |x|
-		options['sdb'] = x || 10485760
+	opts.on( '--sdb [size]', 'Size of optional /dev/sdb. 10G unless [size] is specified.' ) do |x|
+		options['raw_sdb'] = x || '10G'
 	end
 	opts.on( '--vlan VLAN', "VLAN (#{options['vlan']})") do |x|
 		options['vlan'] = x
@@ -174,6 +205,8 @@ optparse = OptionParser.new do|opts|
 	opts.on( '--[no-]power', "Power on the VM after building it (#{options['power_on']})") do |x|
 		options['power_on'] = x
 	end
+	opts.separator ''
+	opts.separator 'General options:'
 	opts.on( '-v', '--debug', 'Verbose output') do
 		$debug = true
 	end
@@ -239,14 +272,25 @@ if template and custom
 end
 
 if template
-	options['cpu'], options['mem'], options['sda'] = templates[template]
+	options['cpu'], options['raw_mem'], options['raw_sda'] = templates[template]
 else
-	options['cpu'], options['mem'], options['sda'] = custom
+	options['cpu'], options['raw_mem'], options['raw_sda'] = custom
 end
+
+# we accept human-friendly input, but need to deal with
+# Mebibytes for RAM and Kebibytes for disks
+options['mem'] = parse_size(options['raw_mem'], 'M')
+options['sda'] = parse_size(options['raw_sda'], 'K')
+if options['raw_sdb']
+	options['sdb'] = parse_size(options['raw_sdb'], 'K')
+end
+
 debug( 'INFO', "CPU: #{options['cpu']}" )
-debug( 'INFO', "Mem: #{options['mem']}" )
-debug( 'INFO', "sda: #{options['sda']}" )
-debug( 'INFO', "sdb: #{options['sdb']}" )
+debug( 'INFO', "Mem: #{options['mem']} MiB" )
+debug( 'INFO', "sda: #{options['sda']} KiB" )
+if options['sdb']
+	debug( 'INFO', "sdb: #{options['sdb']} KiB" )
+end
 
 # TODO: validate the VLAN
 debug( 'INFO', "VLAN: #{options['vlan']}" )
