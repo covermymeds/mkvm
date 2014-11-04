@@ -110,10 +110,10 @@ mkvm knows about four pre-defined VM sizes:
 
 | name | vCPU | Memory | /dev/sda |
 | :----: | :----: | :------: | :--------: |
-| small | 1 | 1024 | 15GB |
-| medium | 2 | 2048 | 15GB |
-| large | 2 | 4096 | 15GB |
-| xlarge | 2 | 8192 | 15GB |
+| small | 1 | 1G | 15GB |
+| medium | 2 | 2G | 15GB |
+| large | 2 | 4G | 15GB |
+| xlarge | 2 | 8G | 15GB |
 
 ## Examples
 To create a small VM named foobar:
