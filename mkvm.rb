@@ -187,7 +187,7 @@ optparse = OptionParser.new do|opts|
 	opts.on( '--custom cpu,mem,sda', Array, 'CPU, Memory, and /dev/sda' ) do |x|
 		custom = x
 	end
-	opts.on( '--sdb [KB]', 'Size of optional /dev/sdb (10G)' ) do |x|
+	opts.on( '--sdb [size]', 'Size of optional /dev/sdb. 10G unless [size] is specified.' ) do |x|
 		options['raw_sdb'] = x || '10G'
 	end
 	opts.on( '--vlan VLAN', "VLAN (#{options['vlan']})") do |x|
