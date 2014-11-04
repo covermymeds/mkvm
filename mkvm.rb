@@ -187,8 +187,8 @@ optparse = OptionParser.new do|opts|
 	opts.on( '--custom cpu,mem,sda', Array, 'CPU, Memory, and /dev/sda' ) do |x|
 		custom = x
 	end
-	opts.on( '--sdb [size]', 'Size of optional /dev/sdb. 10G unless [size] is specified.' ) do |x|
-		options['raw_sdb'] = x || '10G'
+	opts.on( '--sdb [10G{,/pub}]', 'Add /dev/sdb. Size and mount point optional.' ) do |x|
+		raw_sdb = x || '10G'
 	end
 	opts.on( '--vlan VLAN', "VLAN (#{options['vlan']})") do |x|
 		options['vlan'] = x
@@ -272,17 +272,19 @@ if template and custom
 end
 
 if template
-	options['cpu'], options['raw_mem'], options['raw_sda'] = templates[template]
+	options['cpu'], raw_mem, raw_sda = templates[template]
 else
-	options['cpu'], options['raw_mem'], options['raw_sda'] = custom
+	options['cpu'], raw_mem, raw_sda = custom
 end
 
 # we accept human-friendly input, but need to deal with
 # Mebibytes for RAM and Kebibytes for disks
-options['mem'] = parse_size(options['raw_mem'], 'M')
-options['sda'] = parse_size(options['raw_sda'], 'K')
-if options['raw_sdb']
-	options['sdb'] = parse_size(options['raw_sdb'], 'K')
+options['mem'] = parse_size(raw_mem, 'M')
+options['sda'] = parse_size(raw_sda, 'K')
+if raw_sdb
+	sdb_size, *sdb_path = raw_sdb.split(/,/)
+	options['sdb'] = parse_size(sdb_size, 'K')
+	options['sdb_path'] = sdb_path
 end
 
 debug( 'INFO', "CPU: #{options['cpu']}" )
@@ -318,7 +320,12 @@ if options['make_iso']
 
 	# add the APP_ID, if one was supplied
 	ks_line += " APP_ID=#{options['app_id']}" if options['app_id']
-	ks_line += " SDB" if options['sdb']
+	if options['sdb']
+		ks_line += " SDB"
+		if options['sdb_path']
+			ks_line += "=#{options['sdb_path']}"
+		end
+	end
 
 	debug( 'INFO', "#{ks_line}")
 
