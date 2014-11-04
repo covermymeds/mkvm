@@ -1,2 +1,8 @@
+2014-11-04
+* support human-friendly size suffixes
+* reorganize isolinux template directory for better support of
+  multiple major versions
+* add support for optional mount point declaration for /dev/sdb
+* add support for arbitrary boot line arguments (--extra)
 2014-05-28 Scott Merrill <smerrill@covermymeds.com>
 * initial release
