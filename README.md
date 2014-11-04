@@ -28,24 +28,24 @@ Finally, you'll need a copy of the [isolinux](http://www.syslinux.org/wiki/index
 Usage: mkvm.rb [options] hostname
 
 VSphere options:
-    -u, --user USER                  vSphere user name (smerrill-a)
+    -u, --user USER                  vSphere user name
     -p, --password PASSWORD          vSphere password
-    -H, --host HOSTNAME              vSphere host (persepolis.innova.local)
-    -D, --dc DATACENTER              vSphere data center (Innova)
-    -C, --cluster CLUSTER            vSphere cluster (Blade Cluster)
+    -H, --host HOSTNAME              vSphere host
+    -D, --dc DATACENTER              vSphere data center
+    -C, --cluster CLUSTER            vSphere cluster
         --[no-]insecure              Do not validate vSphere SSL certificate (true)
-        --datastore DATASTORE        vSphere datastore regex to use (VMstore-enc)
-        --isostore ISOSTORE          vSphere ISO store to use (ESX_ISO)
+        --datastore DATASTORE        vSphere datastore regex to use
+        --isostore ISOSTORE          vSphere ISO store to use
 
 Kickstart options:
     -r, --major VERSION              Major OS release to use (6)
-        --url URL                    Kickstart URL (http://satellite.innova.local/ks/cfg/org/1/label/RHEL65)
+        --url URL                    Kickstart URL
     -k, --ksdevice TYPE              ksdevice type to use (eth0)
     -i, --ip ADDRESS                 IP address
     -g, --gateway GATEWAY            Gateway address
     -m, --netmask NETMASK            Subnet mask (255.255.255.0)
-    -d, --dns DNS1{,DNS2,...}        DNS server(s) to use (192.168.135.15,192.168.135.16)
-        --domain DOMAIN              DNS domain to append to hostname (innova.local)
+    -d, --dns DNS1{,DNS2,...}        DNS server(s) to use
+        --domain DOMAIN              DNS domain to append to hostname
         --app-env APP_ENV            APP_ENV (development)
         --app-id APP_ID              APP_ID
         --extra "ONE=1 TWO=2"        extra args to pass to boot line
@@ -58,7 +58,7 @@ VM options:
     -t, --template TEMPLATE          VM template: small, medium, large, xlarge
         --custom cpu,mem,sda         CPU, Memory, and /dev/sda
         --sdb [10G{,/pub}]           Add /dev/sdb. Size and mount point optional.
-        --vlan VLAN                  VLAN (DMZ 135 (dvSwitch))
+        --vlan VLAN                  VLAN
         --[no-]iso                   Build ISO (true)
         --[no-]upload                Upload the ISO to the ESX cluster (true)
         --[no-]vm                    Build the VM (true)
