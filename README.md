@@ -28,33 +28,37 @@ Finally, you'll need a copy of the [isolinux](http://www.syslinux.org/wiki/index
 Usage: mkvm.rb [options] hostname
 
 VSphere options:
-    -u, --user USER                  vSphere user name
+    -u, --user USER                  vSphere user name (smerrill-a)
     -p, --password PASSWORD          vSphere password
-    -H, --host HOSTNAME              vSphere host
-    -D, --dc DATACENTER              vSphere data center
-    -C, --cluster CLUSTER            vSphere cluster
+    -H, --host HOSTNAME              vSphere host (persepolis.innova.local)
+    -D, --dc DATACENTER              vSphere data center (Innova)
+    -C, --cluster CLUSTER            vSphere cluster (Blade Cluster)
         --[no-]insecure              Do not validate vSphere SSL certificate (true)
-        --datastore DATASTORE        vSphere datastore regex to use
-        --isostore ISOSTORE          vSphere ISO store to use
+        --datastore DATASTORE        vSphere datastore regex to use (VMstore-enc)
+        --isostore ISOSTORE          vSphere ISO store to use (ESX_ISO)
 
 Kickstart options:
+    -r, --major VERSION              Major OS release to use (6)
+        --url URL                    Kickstart URL (http://satellite.innova.local/ks/cfg/org/1/label/RHEL65)
     -k, --ksdevice TYPE              ksdevice type to use (eth0)
     -i, --ip ADDRESS                 IP address
     -g, --gateway GATEWAY            Gateway address
     -m, --netmask NETMASK            Subnet mask (255.255.255.0)
     -d, --dns DNS1{,DNS2,...}        DNS server(s) to use (192.168.135.15,192.168.135.16)
-    -r, --major_rel VERSION          Major OS release to use (6)
-        --app-env APP_ENV            APP_ENV
+        --domain DOMAIN              DNS domain to append to hostname (innova.local)
+        --app-env APP_ENV            APP_ENV (development)
         --app-id APP_ID              APP_ID
-        --url URL                    Kickstart URL
-        --dir DIR                    Directory containing isolinux template (./isolinux)
-        --domain DOMAIN              DNS domain to append to hostname
+        --extra "ONE=1 TWO=2"        extra args to pass to boot line
+
+ISO options:
+        --srcdir DIR                 Directory containing isolinux templates (./isolinux)
+        --outdir DIR                 Directory in which to write the ISO (./iso)
 
 VM options:
     -t, --template TEMPLATE          VM template: small, medium, large, xlarge
         --custom cpu,mem,sda         CPU, Memory, and /dev/sda
-        --sdb [KB]                   Size of optional /dev/sdb (10G)
-        --vlan VLAN                  VLAN name
+        --sdb [10G{,/pub}]           Add /dev/sdb. Size and mount point optional.
+        --vlan VLAN                  VLAN (DMZ 135 (dvSwitch))
         --[no-]iso                   Build ISO (true)
         --[no-]upload                Upload the ISO to the ESX cluster (true)
         --[no-]vm                    Build the VM (true)
@@ -68,15 +72,22 @@ The only mandatory arguments are `-t` (or `--custom`) and a hostname.
 
 If no `-i` flag is supplied, `mkvm.rb` will perform a DNS lookup for the supplied hostname and use the results.  If no `-i` flag is supplied and the DNS lookup fails, `mkvm.rb` will fail.
 
+The `srcdir` parameter is expected to be a directory that contains sub-directories that match the major version of the system being built.  That is, if you're building a RHEL 7 system, your `srcdir` directory should have a sub-directory named `7` that contains the isolinux files for that release.
+
+The default value of `srcdir` is the isolinux directory in this repo, which contains the sub-directories and templates expected.
+
+The `outdir` parameter is where you want ISOs to be stored. This defaults to the `iso` directory in this repo.
+
 Most of the arguments should be self-explanatory, but a few merit discussion.
 
 * **--datastore**: this is a regular expression that `mkvm.rb` will use to find the datastore to use when building the VM. `mkvm.rb` will use this regex to enumerate all the matching datastores and then select the one with the most space free. This should help ensure that `mkvm.rb` doesn't over-populate any single datastore (unless, of course, you only have a single datastore!).  This also allows you to control, on the fly, which datastore to use.
 * **--isostore**: this is the datastore to which the resultant ISO file will be pushed. This store should be accessible by all the hosts within the cluster, to ensure that any host can build the VM.  A low-performance NFS share is usually suitable for this purpose.
+* **--vlan**: this is the full name of the VLAN to which the VM will be assigned. You may need to wrap this option in quotes.
 * **--gateway**: this is the default route to use for this VM.  It will be used for the Kickstart process, as well as for the resultant VM once built.  If not specified, it defaults to the .1 address in the same network as the IP of the VM.  Thus, if the VM IP is 192.168.1.5 and no gateway is specified, `mkvm.rb` will use 192.168.1.1.
+* **--sdb [size{,path}]**: with no additional arguments, `sdb` adds a 10G /dev/sdb disk to the VM.  Additionally, the value `SDB` is added to the Kickstart boot line.  You may specify a size for your /dev/sdb disk.  You may also specify a mount point for this disk.  If you do so, the resultant Kickstart boot line will look like `SDB=/your/path`.  Note that `mkvm.rb` **does not** actually mount this for you.  It is your responsibility to handle this in your Kickstart file.
 * **--app-env**: this is a value that gets added to the Kickstart command line. Your Kickstart process can parse this option and act accordingly. We use this to define a custom Puppet fact for whether the server is production, testing, development, etc.
 * **--app-id**: this is an optional value that, if present, gets added to the Kickstart command line. Your Kickstart process can parse this option and act accordingly. We use this to define a custom Puppet fact that our applications can act upon.
-* **--dir**: this is the path to your `isolinux` directory. The `isolinux.cfg` file in this directory is parsed by `mkvm.rb` and is expected to have specific tokens that will be replaced.
-* **--vlan**: this is the full name of the VLAN to which the VM will be assigned. You may need to wrap this option in quotes.
+* **--extra**: this is a free-form text argument that will be appended verbatim to your Kickstart boot line.  Note that you must surround multiple elements with quotes in order to ensure that `mkvm.rb` sees these as an atomic unit.
 
 Arguments that accept sizes can pass human-friendly suffixes:
 * K = Kebibytes
@@ -101,6 +112,8 @@ dns: 192.168.1.2,192.168.1.3
 domain: example.com
 app_env: development
 vlan: Production
+srcdir: /nfs/isolinux
+outdir: /nfs/isos
 ```
 
 See `mkvm.yaml.sample` for a full example.
@@ -130,6 +143,11 @@ $ ./mkvm.rb -t small -i 192.168.100.5 foobar
 To create a custom VM named foobar with 3 vCPUs, 3 GB RAM, a 30 GB /dev/sda, a specific IP address, and include a 100GB /dev/sdb disk:
 ```bash
 $ ./mkvm.rb --custom 3,3G,30G -i 192.168.100.5 --sdb 100G foobar
+```
+
+Create an ISO for a medium RHEL 7 system named foobar and pass a couple of extra options to the boot command line:
+```bash
+$ ./mkvm.rb -t medium -r 7 --extra "console=ttyS0 ks.sendmac noverifyssl sshd" foobar
 ```
 
 ## License
