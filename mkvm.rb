@@ -17,12 +17,13 @@ require 'yaml'
 options = {
 	'username'   => ENV['USER'],
 	'insecure'   => true,
-	'dir'        => './isolinux',
+	'srcdir'     => './isolinux',
+	'outdir'     => './iso',
 	'make_iso'   => true,
 	'upload_iso' => true,
 	'make_vm'    => true,
 	'power_on'   => true,
-	'major_rel'  => '6',
+	'major'      => '6',
 	'ksdevice'   => 'eth0',
 	'vlan'       => 'Production',
 }
@@ -33,11 +34,6 @@ if File.exists? Dir.home + "/.mkvm.yaml"
 	options.merge!(user_options)
 end
 
-# Override the ksdevice based on the major release
-if "#{options['major_rel']}".eql?('7')
-	options['ksdevice'] = 'link'
-end
-
 templates = {
 	'small'  => [1, '1G', '15G'],
 	'medium' => [2, '2G', '15G'],
@@ -45,9 +41,6 @@ templates = {
 	'xlarge' => [2, '8G', '15G'],
 }
 
-hostname = nil
-template = nil
-custom = nil
 $debug = false
 
 ## STOP EDITING ##
@@ -146,6 +139,12 @@ optparse = OptionParser.new do|opts|
 	end
 	opts.separator ''
 	opts.separator 'Kickstart options:'
+	opts.on( '-r', '--major VERSION', "Major OS release to use (#{options['major']})") do |x|
+		options['major'] = x
+	end
+	opts.on( '--url URL', "Kickstart URL (#{options['url']})") do |x|
+		options['url'] = x
+	end
 	opts.on( '-k', '--ksdevice TYPE', "ksdevice type to use (#{options['ksdevice']})") do |x|
 		options['ksdevice'] = x
 	end
@@ -161,8 +160,8 @@ optparse = OptionParser.new do|opts|
 	opts.on( '-d', '--dns DNS1{,DNS2,...}', "DNS server(s) to use (#{options['dns']})") do |x|
 		options['dns'] = x
 	end
-	opts.on( '-r', '--major_rel VERSION', "Major OS release to use (#{options['major_rel']})") do |x|
-		options['major_rel'] = x
+	opts.on( '--domain DOMAIN', "DNS domain to append to hostname (#{options['domain']})") do |x|
+		options['domain'] = x
 	end
 	opts.on( '--app-env APP_ENV', "APP_ENV (#{options['app_env']})") do |x|
 		options['app_env'] = x
@@ -170,25 +169,27 @@ optparse = OptionParser.new do|opts|
 	opts.on( '--app-id APP_ID', 'APP_ID') do |x|
 		options['app_id'] = x
 	end
-	opts.on( '--url URL', "Kickstart URL (#{options['url']})") do |x|
-		options['url'] = x
+	opts.on( '--extra "ONE=1 TWO=2"', 'extra args to pass to boot line') do |x|
+		options['extra'] = x
 	end
-	opts.on( '--dir DIR', "Directory containing isolinux template (#{options['dir']})") do |x|
-		options['dir'] = x
+	opts.separator ''
+	opts.separator 'ISO options:'
+	opts.on( '--srcdir DIR', "Directory containing isolinux templates (#{options['srcdir']})") do |x|
+		options['srcdir'] = x
 	end
-	opts.on( '--domain DOMAIN', "DNS domain to append to hostname (#{options['domain']})") do |x|
-		options['domain'] = x
+	opts.on( '--outdir DIR', "Directory in which to write the ISO (#{options['outdir']})") do |x|
+		options['outdir'] = x
 	end
 	opts.separator ''
 	opts.separator 'VM options:'
 	opts.on( '-t', '--template TEMPLATE', "VM template: small, medium, large, xlarge") do |x|
-		template = x
+		@template = x
 	end
 	opts.on( '--custom cpu,mem,sda', Array, 'CPU, Memory, and /dev/sda' ) do |x|
-		custom = x
+		@custom = x
 	end
-	opts.on( '--sdb [size]', 'Size of optional /dev/sdb. 10G unless [size] is specified.' ) do |x|
-		options['raw_sdb'] = x || '10G'
+	opts.on( '--sdb [10G{,/pub}]', 'Add /dev/sdb. Size and mount point optional.' ) do |x|
+		@raw_sdb = x || '10G'
 	end
 	opts.on( '--vlan VLAN', "VLAN (#{options['vlan']})") do |x|
 		options['vlan'] = x
@@ -219,6 +220,11 @@ end
 # actully parse the command line arguments.
 optparse.parse!
 
+# Override the ksdevice based on the major release
+if "#{options['major_rel']}".eql?('7')
+	options['ksdevice'] = 'link'
+end
+
 # What's left over should be the hostname.
 # But let's be cautious
 if ARGV.count == 0
@@ -236,7 +242,8 @@ if hostname =~ /\./
 end
 
 # grab the dirname of the isolinux path
-basedir = File.dirname(options['dir'])
+srcdir = File.realdirpath("#{options['srcdir']}/#{options['major']}/")
+outdir = File.realdirpath(options['outdir'])
 
 # perform a few sanity checks on the network parameters
 options['ip'] = get_address( hostname ) unless options['ip']
@@ -266,31 +273,32 @@ debug( 'INFO', "Netmask: #{options['netmask']}" )
 debug( 'INFO', "Gateway: #{options['gateway']}" )
 
 # we need a template selection or custom definition, but not both
-abort '-t or --custom is required' unless template or custom
-if template and custom
+abort '-t or --custom is required' unless @template or @custom
+if @template and @custom
 	abort '-t and --custom are mutually exclusive'
 end
 
-if template
-	options['cpu'], options['raw_mem'], options['raw_sda'] = templates[template]
+if @template
+	options['cpu'], raw_mem, raw_sda = templates[@template]
 else
-	options['cpu'], options['raw_mem'], options['raw_sda'] = custom
+	options['cpu'], raw_mem, raw_sda = @custom
 end
 
 # we accept human-friendly input, but need to deal with
 # Mebibytes for RAM and Kebibytes for disks
-options['mem'] = parse_size(options['raw_mem'], 'M')
-options['sda'] = parse_size(options['raw_sda'], 'K')
-if options['raw_sdb']
-	options['sdb'] = parse_size(options['raw_sdb'], 'K')
+options['mem'] = parse_size(raw_mem, 'M')
+options['sda'] = parse_size(raw_sda, 'K')
+if @raw_sdb
+	sdb_size, *sdb_path = @raw_sdb.split(/,/)
+	options['sdb'] = parse_size(sdb_size, 'K')
+	options['sdb_path'] = sdb_path[0]
 end
 
 debug( 'INFO', "CPU: #{options['cpu']}" )
 debug( 'INFO', "Mem: #{options['mem']} MiB" )
 debug( 'INFO', "sda: #{options['sda']} KiB" )
-if options['sdb']
-	debug( 'INFO', "sdb: #{options['sdb']} KiB" )
-end
+debug( 'INFO', "sdb: #{options['sdb']} KiB" )  if options['sdb']
+debug( 'INFO', "sdb_path: #{options['sdb_path']}" ) if options['sdb_path']
 
 # TODO: validate the VLAN
 debug( 'INFO', "VLAN: #{options['vlan']}" )
@@ -302,23 +310,25 @@ if "#{options['major_rel']}".eql?('7')
        nameserver_string =  options['dns'].split(',').collect { |x| "nameserver=" + x }.join(" ") 
 end
 
-
 # build the ISO
 if options['make_iso']
 	isoname = "#{hostname}.iso"
-	tmp_dir = "#{basedir}/tmp/#{hostname}"
+	work_dir = File.realdirpath("#{options['dir']}/tmp")
+	tmp_dir = "#{work_dir}/#{hostname}"
 	# TODO: handle exceptions
 	FileUtils.mkdir_p tmp_dir
 
 	# create the ISO template directory
-	FileUtils.cp_r options['dir'], "#{tmp_dir}/isolinux"
+	FileUtils.cp_r srcdir, "#{tmp_dir}/isolinux"
 
 	# build our kickstart line
 	ks_line="ks=#{options['url']} noverifyssl ksdevice=#{options['ksdevice']} ip=#{options['ip']} netmask=#{options['netmask']} gateway=#{options['gateway']} hostname=#{hostname}.#{options['domain']} #{nameserver_string} APP_ENV=#{options['app_env']}"
 
 	# add the APP_ID, if one was supplied
-	ks_line += " APP_ID=#{options['app_id']}" if options['app_id']
-	ks_line += " SDB" if options['sdb']
+	ks_line << " APP_ID=#{options['app_id']}" if options['app_id']
+	ks_line << " SDB" if options['sdb']
+	ks_line << "=#{options['sdb_path']}" if options['sdb_path']
+	ks_line << " #{options['extra']}" if options['extra']
 
 	debug( 'INFO', "#{ks_line}")
 
@@ -326,13 +336,13 @@ if options['make_iso']
 	text.gsub!(/KICKSTART_PARMS/, ks_line)
 	IO.write( "#{tmp_dir}/isolinux/isolinux.cfg", text )
 
-	system( "mkisofs -quiet -o #{basedir}/#{isoname} -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -J -R -V '#{hostname}' #{tmp_dir}" )
+	system( "mkisofs -quiet -o #{outdir}/#{isoname} -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -J -R -V '#{hostname}' #{tmp_dir}" )
 
 	# clean up after ourselves
 	FileUtils.rm_rf "#{tmp_dir}"
-	FileUtils.chmod_R 0755, "#{basedir}/#{isoname}"
+	FileUtils.chmod_R 0755, "#{outdir}/#{isoname}"
 
-	debug( 'INFO', "#{basedir}/#{isoname} created" )
+	debug( 'INFO', "#{outdir}/#{isoname} created" )
 end
 
 # stop here if we're not doing anything with ESX
@@ -361,7 +371,7 @@ if options['upload_iso']
 	isostore = dc.find_datastore(options['iso_store'])
 
 	debug( 'INFO', "Uploading #{hostname}.iso to #{options['iso_store']}" )
-	isostore.upload "/#{hostname}.iso", "#{basedir}/#{hostname}.iso"
+	isostore.upload "/#{hostname}.iso", "#{outdir}/#{hostname}.iso"
 end
 
 cluster = dc.hostFolder.children.find { |x| x.name == options['cluster'] } or abort "vSphere cluster #{options['cluster']} not found"
