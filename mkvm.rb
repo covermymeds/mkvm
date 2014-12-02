@@ -12,6 +12,9 @@ require 'rbvmomi'
 require 'resolv'
 require 'socket'
 require 'yaml'
+# Additions for auto IP 
+require "net/https"
+require "uri"
 
 # establish a couple of sane default values
 options = {
@@ -79,25 +82,25 @@ def debug(prefix, msg)
 end
 
 # return the IP address of the given hostname
-def get_address( host )
-	Resolv.getaddress( host )
-rescue Resolv::ResolvError
-	false
-end
+#def get_address( host )
+#	Resolv.getaddress( host )
+#rescue Resolv::ResolvError
+#	false
+#end
 
 # return the FQDN from a DNS lookup
-def get_fqdn( shortname )
-	Socket.gethostbyname(shortname).first
-rescue SocketError
-	false
-end
+#def get_fqdn( shortname )
+#	Socket.gethostbyname(shortname).first
+#rescue SocketError
+#	false
+#end
 
 # return the DNS name of the given IP address
-def get_name( ip )
-	Resolv.getname( ip )
-rescue Resolv::ResolvError
-	false
-end
+#def get_name( ip )
+#	Resolv.getname( ip )
+#rescue Resolv::ResolvError
+#	false
+#end
 
 # assume the gateway is always .1 of the given network
 def get_gateway_address( ip )
@@ -207,6 +210,17 @@ optparse = OptionParser.new do|opts|
 		options['power_on'] = x
 	end
 	opts.separator ''
+	opts.separator 'automated IPAM options:'
+	opts.on( '-s subnet', '--subnet NAME', 'subnet name') do |x|
+		options['subnet'] = x
+	end
+	opts.on( '--auto-uri uri', "URI for auto IP system(#{options['auto_uri']})") do |x|
+		options['auto_uri'] = x
+	end
+	opts.on( '--pupp-role role', "Puppet role for system(#{options['role']})") do |x|
+		options['role'] = x
+	end
+	opts.separator ''
 	opts.separator 'General options:'
 	opts.on( '-v', '--debug', 'Verbose output') do
 		$debug = true
@@ -220,10 +234,14 @@ end
 # actully parse the command line arguments.
 optparse.parse!
 
+puts "Requesting IP address in #{options['subnet']} subnet."
 # Override the ksdevice based on the major release
 if "#{options['major_rel']}".eql?('7')
 	options['ksdevice'] = 'link'
 end
+
+ipam = options['auto_uri']
+puts "#{ipam}"
 
 # What's left over should be the hostname.
 # But let's be cautious
@@ -241,33 +259,33 @@ if hostname =~ /\./
 	abort 'The hostname should not contain dots'
 end
 
+# Get an IP from our IPAM system
+uri = URI.parse("#{options['auto_uri']}/api/getFreeIP.php?subnet=#{options['subnet']}&host=#{hostname}&role=#{options['role']}&user=#{options['username']}")
+http = Net::HTTP.new(uri.host, uri.port)
+http.use_ssl = true
+#http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+request = Net::HTTP::Get.new(uri.request_uri)
+response = http.request(request)
+ip = response.body
+puts "System will be built with #{ip}" 
+
 # grab the dirname of the isolinux path
 srcdir = File.realdirpath("#{options['srcdir']}/#{options['major']}/")
 outdir = File.realdirpath(options['outdir'])
 
 # perform a few sanity checks on the network parameters
-options['ip'] = get_address( hostname ) unless options['ip']
-abort "ERROR: No IP supplied, and no DNS for #{hostname}" unless options['ip']
-options['gateway'] = get_gateway_address( options['ip'] ) unless options['gateway']
+ip = get_address( hostname ) unless ip
+abort "ERROR: No IP supplied, and no DNS for #{hostname}" unless ip
+options['gateway'] = get_gateway_address( ip ) unless options['gateway']
 
-abort "ERROR: Invalid IP address #{options['ip']}" unless options['ip'] =~ Resolv::IPv4::Regex
+abort "ERROR: Invalid IP address #{options['ip']}" unless ip =~ Resolv::IPv4::Regex
 
 mask_regex = /^[1-2]{1}[2,4,5,9]{1}[0,2,4,5,8]{1}\.[0-2]{1}[0,2,4,5,9]{1}[0,2,4,5,8]{1}\.[0-2]{1}[0,2,4,5,9]{1}[0,2,4,5,8]{1}\.[0-9]{1,3}$/
 	abort "ERROR: Invalid subnet mask #{options['subnet']}" unless options['netmask'] =~ mask_regex
 
 abort "ERROR: Invalid gateway #{options['gateway']}" unless options['gateway'] =~ Resolv::IPv4::Regex
-abort "ERROR: IP cannot match gateway!" unless options['ip'] != options['gateway']
+abort "ERROR: IP cannot match gateway!" unless ip != options['gateway']
 
-# compare DNS with the network parameters
-resolved_ip = get_address( hostname )
-if resolved_ip and (resolved_ip != options['ip'])
-	debug( 'WARN', "#{options['ip']} does not match DNS for #{hostname}" )
-end
-fqdn = get_fqdn( hostname ) || "#{hostname}.#{options['domain']}"
-resolved_name = get_name( options['ip'] )
-if resolved_name and (resolved_name != fqdn)
-	debug( 'WARN', "#{options['ip']} already assigned to #{resolved_name}" )
-end
 debug( 'INFO', "IP: #{options['ip']}" )
 debug( 'INFO', "Netmask: #{options['netmask']}" )
 debug( 'INFO', "Gateway: #{options['gateway']}" )
@@ -322,7 +340,7 @@ if options['make_iso']
 	FileUtils.cp_r srcdir, "#{tmp_dir}/isolinux"
 
 	# build our kickstart line
-	ks_line="ks=#{options['url']} noverifyssl ksdevice=#{options['ksdevice']} ip=#{options['ip']} netmask=#{options['netmask']} gateway=#{options['gateway']} hostname=#{hostname}.#{options['domain']} #{nameserver_string} APP_ENV=#{options['app_env']}"
+	ks_line="ks=#{options['url']} noverifyssl ksdevice=#{options['ksdevice']} ip=#{ip} netmask=#{options['netmask']} gateway=#{options['gateway']} hostname=#{hostname}.#{options['domain']} #{nameserver_string} APP_ENV=#{options['app_env']}"
 
 	# add the APP_ID, if one was supplied
 	ks_line << " APP_ID=#{options['app_id']}" if options['app_id']
