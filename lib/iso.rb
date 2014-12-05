@@ -1,8 +1,10 @@
 class ISO < Mkvm
 
-  attr_accessor :defaults
   def initialize
-    @defaults = { 
+  end
+
+  def defaults
+    return { 
       :srcdir => './isolinux',
       :outdir => './iso',
       :make_iso => true,

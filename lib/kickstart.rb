@@ -1,8 +1,7 @@
 class Kickstart < Mkvm
 
-  attr_accessor :defaults
-  def initialize
-    @defaults = { :major => '6', :ksdevice => 'eth0' }
+  def defaults 
+    return { :major => '6', :ksdevice => 'eth0' }
   end
 
   def optparse opts, options

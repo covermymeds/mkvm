@@ -1,8 +1,10 @@
 class Vsphere < Mkvm
 
-  attr_accessor :defaults
   def initialize
-    @defaults = {
+  end
+
+  def defaults
+    return {
       :username => ENV['USER'],
       :insecure => true,
       :upload_iso => true,
