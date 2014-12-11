@@ -236,7 +236,7 @@ optparse.parse!
 
 puts "Requesting IP address in #{options['subnet']} subnet."
 # Override the ksdevice based on the major release
-if "#{options['major_rel']}".eql?('7')
+if "#{options['major']}".eql?('7')
 	options['ksdevice'] = 'link'
 end
 
@@ -321,10 +321,10 @@ debug( 'INFO', "sdb_path: #{options['sdb_path']}" ) if options['sdb_path']
 # TODO: validate the VLAN
 debug( 'INFO', "VLAN: #{options['vlan']}" )
 
-# Generate the proper Nameserver string based on major_rel
+# Generate the proper Nameserver string based on major
 nameserver_string = "dns=#{options['dns']}"
 
-if "#{options['major_rel']}".eql?('7')
+if "#{options['major']}".eql?('7')
        nameserver_string =  options['dns'].split(',').collect { |x| "nameserver=" + x }.join(" ") 
 end
 
