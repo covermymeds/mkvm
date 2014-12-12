@@ -18,16 +18,13 @@ class Autoip < Plugin
     opts.on( '--auto-uri uri', "URI for auto IP system(#{options['auto_uri']})") do |x|
       options['auto_uri'] = x
     end
-    opts.on( '--pupp-role role', "Puppet role for system(#{options['role']})") do |x|
-      options['role'] = x
-    end
     return opts, options
 
   def autoip
     puts "Requesting IP address in #{options['subnet']} subnet."
 
     # Get an IP from our IPAM system
-    uri = URI.parse("#{options['auto_uri']}/api/getFreeIP.php?subnet=#{options['subnet']}&host=#{hostname}&role=#{options['role']}&user=#{options['username']}")
+    uri = URI.parse("#{options['auto_uri']}/api/getFreeIP.php?subnet=#{options['subnet']}&host=#{hostname}&user=#{options['username']}")
     http = Net::HTTP.new(uri.host, uri.port)
     http.use_ssl = true
     request = Net::HTTP::Get.new(uri.request_uri)
