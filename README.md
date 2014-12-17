@@ -6,6 +6,7 @@ Sane default values are provided for all optional arguments. All defaults can be
 * [Usage](#usage)
 * [User Defaults](#user-defaults)
 * [Templates](#templates)
+* [PLugins](#plugins)
 * [Examples](#examples)
 * [License](#license)
 
@@ -137,9 +138,15 @@ mkvm knows about four pre-defined VM sizes:
 ## Plugins
 `mkbm.rb` will look in the `plugins` directory for all files with an `.rb` extension.  Any such files will be loaded.  This allows users to extend the functionality of `mkvm.rb` on their own.
 
-All plugins should extend the `Plugin` class, defined in `lib/plugin.rb`.
+All plugins should extend the `Plugin` class, defined in `lib/plugin.rb`.  Each plugin has numerous opportunities to interact with the overall process.
 
 Plugins are **not** instantiated.
+
+Several defaul plugins are provided:
+* ip_pre_validate.rb: if no gateway address is provided, assume the user wants the .1 address of the network on which the VM is being created
+* ip_post_validate.rb: perform a variety of santify checks to ensure the IP information is sane.
+
+An example plugin is also provided (but not activated) to demonstrate how to add custom command line options.
 
 ## Examples
 To create a small VM named foobar:

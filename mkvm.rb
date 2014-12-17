@@ -20,6 +20,8 @@ Dir['plugins/*.rb'].each do |plugin|
 end
 
 # create our options hash.
+# We'll pass this to each class, and exploit the fact that this
+# class will see changes made to this hash in other classes
 options = { :debug => false }
 
 # create the objects we'll use
@@ -31,6 +33,7 @@ options.merge!(iso.defaults)
 vsphere = Vsphere.new
 options.merge!(vsphere.defaults)
 
+# plugins may provide defaults, too
 plugins.each do |p| 
   plugin_defaults = Kernel.const_get(p).defaults
   options.merge!(plugin_defaults)
@@ -45,11 +48,14 @@ end
 opts = OptionParser.new
 opts.banner = 'Usage: mkvm.rb [options] hostname'
 opts.separator ''
-opts, options = ks.optparse(opts, options)
-opts, options = iso.optparse(opts, options)
-opts, options = vsphere.optparse(opts, options)
+
+# these classes can modify the opts and options variables in this scope
+ks.optparse(opts, options)
+iso.optparse(opts, options)
+vsphere.optparse(opts, options)
+
 # let plugins add options, too
-plugins.each { |p| opts, options = Kernel.const_get(p).optparse(opts, options) }
+plugins.each { |p| Kernel.const_get(p).optparse(opts, options) }
 # and some useful general options
 opts.separator 'General options:'
 opts.on('-v', '--debug', 'Enable verbose output') do |x|
@@ -73,8 +79,24 @@ end
 
 options[:hostname] = ARGV[0].downcase
 
-options = ks.validate(options)
-options = iso.validate(options)
-options = vsphere.validate(options)
+# we let plugins run their validation processes first
+# so that they might set values required by the core modules
+plugins.each { |p| Kernel.const_get(p).pre_validate(options) }
 
-puts options
+ks.validate(options)
+iso.validate(options)
+vsphere.validate(options)
+
+# and we let plugins run another validation after the core modules
+plugins.each { |p| Kernel.const_get(p).post_validate(options) }
+
+# for each of our main tasks, we allow plugins to execute
+# both before and after, to afford the most flexibility
+plugins.each { |p| Kernel.const_get(p).pre_iso(options) }
+iso.execute(options)
+plugins.each { |p| Kernel.const_get(p).post_iso(options) }
+
+plugins.each { |p| Kernel.const_get(p).pre_vm(options) }
+vsphere.execute(options)
+plugins.each { |p| Kernel.const_get(p).post_vm(options) }
+

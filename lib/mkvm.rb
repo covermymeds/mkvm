@@ -13,4 +13,11 @@ class Mkvm
   def validate options
     return options
   end
+
+  def execute options
+  end
+
+  def debug prefix, message
+    puts "#{prefix}: #{message}"
+  end
 end

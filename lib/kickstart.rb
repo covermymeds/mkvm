@@ -39,29 +39,39 @@ class Kickstart < Mkvm
     opts.on( '--extra "ONE=1 TWO=2"', 'extra args to pass to boot line') do |x|
       options[:extra] = x
     end
-    return opts, options
   end
 
   def validate(options)
-    # RHEL7 does away with ethX device names
-    options['ksdevice'] = 'link' if options['major_rel'].to_i == '7'
-
-    return options
-  end
-
-  def kickstart
-    # Generate the proper Nameserver string based on major_rel
-    if @options['major_rel'].to_i == 7
-      nameserver_string = @options['dns'].split(',').collect { |x| "nameserver=" + x }.join(" ")
+    # handle differences between RHEL6 and RHEL7
+    if options[:major].to_i == 7
+      # Generate the proper Nameserver string based on major_rel
+      nameserver_string = options[:dns].split(',').collect { |x| "nameserver=#{x}" }.join(" ")
+      # RHEL7 does away with ethX device names
+      options[:ksdevice] = 'link'
     else
-      nameserver_string = "dns=#{@options['dns']}"
+      nameserver_string = "dns=#{options[:dns]}"
     end
-    # build our kickstart line
-    ks_line="ks=#{options['url']} noverifyssl ksdevice=#{options['ksdevice']} ip=#{options['ip']} netmask=#{options['netmask']} gateway=#{options['gateway']} hostname=#{hostname}.#{options['domain']} #{nameserver_string} APP_ENV=#{options['app_env']}"
+
+    # if given a short hostname and a domain name,
+    # concatenate the two to create the hostname.
+    # otherwise, accept what was given to us here
+    if (options[:hostname] !~ /\./) and (options[:domain])
+      options[:hostname] = "#{options[:hostname]}.#{options[:domain]}"
+    end
+
+    # finally, let's build up our KS line and add it to the options hash
+    ks_line="ks=#{options[:url]} noverifyssl ksdevice=#{options[:ksdevice]} ip=#{options[:ip]} netmask=#{options[:netmask]} gateway=#{options[:gateway]} hostname=#{options[:hostname]} #{nameserver_string} APP_ENV=#{options[:app_env]}"
     # add the APP_ID, if one was supplied
-    ks_line << " APP_ID=#{options['app_id']}" if options['app_id']
-    ks_line << " SDB" if options['sdb']
-    ks_line << "=#{options['sdb_path']}" if options['sdb_path']
-    ks_line << " #{options['extra']}" if options['extra']
+    ks_line << " APP_ID=#{options[:app_id]}" if options[:app_id]
+    ks_line << " SDB" if options[:sdb]
+    ks_line << "=#{options[:sdb_path]}" if options[:sdb_path]
+    ks_line << " #{options[:extra]}" if options[:extra]
+
+    options[:ks_line] = ks_line
+
+    debug( 'INFO', "IP: #{options[:ip]}" ) if options[:debug]
+    debug( 'INFO', "Netmask: #{options[:netmask]}" ) if options[:debug]
+    debug( 'INFO', "Gateway: #{options[:gateway]}" ) if options[:debug]
+    debug( 'INFO', "Kickstart line: #{options[:ks_line]}" ) if options[:debug]
   end 
 end
