@@ -135,7 +135,7 @@ class Vsphere < Mkvm
 
   def execute options
     # we only execute if the options make sense
-    if not options[:upload_iso] and not options[:make_vm]
+    if not options[:upload_iso] or not options[:make_vm]
       exit
     end
 

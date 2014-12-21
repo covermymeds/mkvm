@@ -5,12 +5,7 @@ require "uri"
 
 class Autoip < Plugin
 
-  def self.defaults
-    return { :auto_uri => 'https://ipam.dev/'}
-  end
-
   def self.optparse opts, options
-    opts.separator ''
     opts.separator 'automated IPAM options:'
     opts.on( '-s subnet', '--subnet NAME', 'subnet name') do |x|
       options['subnet'] = x
@@ -19,18 +14,23 @@ class Autoip < Plugin
       options['auto_uri'] = x
     end
     return opts, options
-
-  def autoip
-    puts "Requesting IP address in #{options['subnet']} subnet."
-
-    # Get an IP from our IPAM system
-    uri = URI.parse("#{options['auto_uri']}/api/getFreeIP.php?subnet=#{options['subnet']}&host=#{hostname}&user=#{options['username']}")
-    http = Net::HTTP.new(uri.host, uri.port)
-    http.use_ssl = true
-    request = Net::HTTP::Get.new(uri.request_uri)
-    response = http.request(request)
-    ip = response.body
-    puts "System will be built with #{ip}"
   end
+
+  def self.pre_validate options
+    if ! options[:subnet]
+      subnet = options[:app_env]
+      if ! options[:ip]
+
+      # Get an IP from our IPAM system
+      uri = URI.parse("#{options['auto_uri']}/api/getFreeIP.php?subnet=#{options['subnet']}&host=#{options['hostname']}&user=#{options['username']}")
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl = true
+      request = Net::HTTP::Get.new(uri.request_uri)
+      response = http.request(request)
+      options[:ip] = response.body
+      puts "System will be built with #{options['ip']}"
+      return options[:ip]
+      end
+    end
   end
 end
