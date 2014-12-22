@@ -17,20 +17,17 @@ class Autoip < Plugin
   end
 
   def self.pre_validate options
-    if ! options[:subnet]
-      subnet = options[:app_env]
-      if ! options[:ip]
-
+    # if no subnet specified, use the APP_ENV
+    options[:subnet] = options[:app_env] if ! options[:subnet]
+    if ! options[:ip]
       # Get an IP from our IPAM system
-      uri = URI.parse("#{options['auto_uri']}/api/getFreeIP.php?subnet=#{options['subnet']}&host=#{options['hostname']}&user=#{options['username']}")
+      uri = URI.parse("#{options[:auto_uri]}/api/getFreeIP.php?subnet=#{options[:subnet]}&host=#{options[:hostname]}&user=#{options[:username]}")
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = true
       request = Net::HTTP::Get.new(uri.request_uri)
       response = http.request(request)
       options[:ip] = response.body
-      puts "System will be built with #{options['ip']}"
-      return options[:ip]
-      end
+      self.debug('INFO', "Assigned IP: #{options[:ip]}") if options[:debug]
     end
   end
 end
