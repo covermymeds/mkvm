@@ -8,10 +8,10 @@ class Autoip < Plugin
   def self.optparse opts, options
     opts.separator 'automated IPAM options:'
     opts.on( '-s subnet', '--subnet NAME', 'subnet name') do |x|
-      options['subnet'] = x
+      options[:subnet] = x
     end
-    opts.on( '--auto-uri uri', "URI for auto IP system(#{options['auto_uri']})") do |x|
-      options['auto_uri'] = x
+    opts.on( '--auto-uri uri', "URI for auto IP system(#{options[:auto_uri]})") do |x|
+      options[:auto_uri] = x
     end
     return opts, options
   end
