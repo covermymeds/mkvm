@@ -2,6 +2,7 @@
 
 require "net/https"
 require "uri"
+require "ipaddr"
 
 class Autoip < Plugin
 
@@ -20,14 +21,18 @@ class Autoip < Plugin
     # if no subnet specified, use the APP_ENV
     options[:subnet] = options[:app_env] if ! options[:subnet]
     if ! options[:ip]
+      puts "Requesting IP in #{options[:subnet]} vlan"
       # Get an IP from our IPAM system
       uri = URI.parse("#{options[:auto_uri]}/api/getFreeIP.php?subnet=#{options[:subnet]}&host=#{options[:hostname]}&user=#{options[:username]}")
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = true
       request = Net::HTTP::Get.new(uri.request_uri)
       response = http.request(request)
+      if response.code != "200"
+        abort "There was an error requesting your IP address, IPAM returned #{response.code}"
+      end
       options[:ip] = response.body
-      self.debug('INFO', "Assigned IP: #{options[:ip]}") if options[:debug]
+      puts "Assigned IP: #{options[:ip]}"
     end
   end
 end
