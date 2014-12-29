@@ -70,43 +70,7 @@ class Vsphere < Mkvm
       end
   end
 
-  def validate options
-    abort '-t or --custom is required' unless options[:template] or options[:custom]
-    if options[:template] and options[:custom]
-      abort '-t and --custom are mutually exclusive'
-    end
-
-    if options[:template]
-      options['cpu'], raw_mem, raw_sda = @templates[options[:template]]
-    else
-      options['cpu'], raw_mem, raw_sda = options[:custom]
-    end
-
-    # we accept human-friendly input, but need to deal with
-    # Mebibytes for RAM and Kebibytes for disks
-    options['mem'] = parse_size(raw_mem, 'M')
-    options['sda'] = parse_size(raw_sda, 'K')
-
-    if options[:raw_sdb]
-      sdb_size, *sdb_path = options[:raw_sdb].split(/,/)
-      options['sdb'] = parse_size(sdb_size, 'K')
-      options['sdb_path'] = sdb_path[0]
-    end
-
-    debug( 'INFO', "CPU: #{options['cpu']}" ) if options[:debug]
-    debug( 'INFO', "Mem: #{options['mem']} MiB" ) if options[:debug]
-    debug( 'INFO', "sda: #{options['sda']} KiB" ) if options[:debug]
-    debug( 'INFO', "sdb: #{options['sdb']} KiB" ) if options['sdb'] and options[:debug]
-    debug( 'INFO', "sdb_path: #{options['sdb_path']}" ) if options['sdb_path'] and options[:debug]
-    debug( 'INFO', "VLAN: #{options['vlan']}" ) if options[:debug]
-
-    if options[:upload_iso] and options[:make_vm] and not options[:password]
-      print 'Password: '
-      options[:password] = STDIN.noecho(&:gets).chomp
-      puts ''
-    end
-  end
-
+  # this helper method converts unit sizes from human readable to machine usable
   def parse_size(size, target_unit = 'K')
     if size =~ /^[0-9.]+$/
       # size was an integer or a float
@@ -133,6 +97,44 @@ class Vsphere < Mkvm
     return o
   end
 
+
+  def validate options
+    abort '-t or --custom is required' unless options[:template] or options[:custom]
+    if options[:template] and options[:custom]
+      abort '-t and --custom are mutually exclusive'
+    end
+
+    if options[:template]
+      options[:cpu], raw_mem, raw_sda = @templates[options[:template]]
+    else
+      options[:cpu], raw_mem, raw_sda = options[:custom]
+    end
+
+    # we accept human-friendly input, but need to deal with
+    # Mebibytes for RAM and Kebibytes for disks
+    options[:mem] = parse_size(raw_mem, 'M')
+    options[:sda] = parse_size(raw_sda, 'K')
+
+    if options[:raw_sdb]
+      sdb_size, *sdb_path = options[:raw_sdb].split(/,/)
+      options[:sdb] = parse_size(sdb_size, 'K')
+      options[:sdb_path] = sdb_path[0]
+    end
+
+    debug( 'INFO', "CPU: #{options[:cpu]}" ) if options[:debug]
+    debug( 'INFO', "Mem: #{options[:mem]} MiB" ) if options[:debug]
+    debug( 'INFO', "sda: #{options[:sda]} KiB" ) if options[:debug]
+    debug( 'INFO', "sdb: #{options[:sdb]} KiB" ) if options['sdb'] and options[:debug]
+    debug( 'INFO', "sdb_path: #{options[:sdb_path]}" ) if options[:sdb_path] and options[:debug]
+    debug( 'INFO', "VLAN: #{options[:vlan]}" ) if options[:debug]
+
+    if options[:upload_iso] and options[:make_vm] and not options[:password]
+      print 'Password: '
+      options[:password] = STDIN.noecho(&:gets).chomp
+      puts ''
+    end
+  end
+
   def execute options
     # we only execute if the options make sense
     if not options[:upload_iso] or not options[:make_vm]
@@ -149,7 +151,7 @@ class Vsphere < Mkvm
       # get the ISO datastore
       isostore = dc.find_datastore(options[:iso_store])
       debug( 'INFO', "Uploading #{options[:hostname]}.iso to #{options[:iso_store]}" )  if options[:debug]
-      isostore.upload "/#{hostname}.iso", "#{outdir}/#{hostname}.iso"
+      isostore.upload "/#{options[:hostname]}.iso", "#{options[:outdir]}/#{options[:hostname]}.iso"
     end
     cluster = dc.hostFolder.children.find { |x| x.name == options[:cluster] } or abort "vSphere cluster #{options[:cluster]} not found"
     debug( 'INFO', "Found VMware cluster #{options[:cluster]}" ) if options[:debug]
@@ -162,7 +164,7 @@ class Vsphere < Mkvm
     time = Time.new
     annotation = "Created by " + options[:username] + " on " + time.strftime("%Y-%m-%d at %H:%M %p")
     vm_cfg = {
-      :name => hostname,
+      :name => options[:hostname],
       :annotation => annotation,
       :guestId => 'rhel6_64Guest',
       :files => { :vmPathName => "[#{datastore}]" },
@@ -197,7 +199,7 @@ class Vsphere < Mkvm
         :device => RbVmomi::VIM.VirtualCdrom(
           :key => -2,
           :backing => RbVmomi::VIM.VirtualCdromIsoBackingInfo(
-            :fileName => "[#{options[:iso_store]}] #{hostname}.iso",
+            :fileName => "[#{options[:iso_store]}] #{options[:hostname]}.iso",
       ),
         :connectable => RbVmomi::VIM.VirtualDeviceConnectInfo(
           :allowGuestControl => true,
@@ -206,7 +208,7 @@ class Vsphere < Mkvm
       ),
       :deviceInfo => {
         :label => 'CD/DVD drive 1',
-        :summary => "ISO [#{options[:iso_store]}] #{hostname}.iso",
+        :summary => "ISO [#{options[:iso_store]}] #{options[:hostname]}.iso",
       },
         :controllerKey => 200,
         :unitNumber => 0,
