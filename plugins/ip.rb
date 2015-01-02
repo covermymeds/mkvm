@@ -29,6 +29,13 @@ class Ip < Plugin
         self.debug( 'WARN', "#{options[:ip]} does not match DNS for #{options[:hostname]}" )
       end
     end
+
+    # if we don't have a gateway address we'll compute one
+    if ! options[:gateway]
+      octets = options[:ip].split('.')
+      octets[-1] = options[:gateway_octet]
+      options[:gateway] = octets.join('.')
+    end
   end
 
   # We run this as a post_validate so that pre-validate plugins might
@@ -51,13 +58,6 @@ class Ip < Plugin
 
     if options[:ip] !~ Resolv::IPv4::Regex
       abort "ERROR: Invalid IP address #{options[:ip]}"
-    end
-
-    # if we don't have a gateway address we'll compute one
-    if ! options[:gateway]
-      octets = options[:ip].split('.')
-      octets[-1] = options[:gateway_octet]
-      options[:gateway] = octets.join('.')
     end
 
     mask_regex = /^[1-2]{1}[2,4,5,9]{1}[0,2,4,5,8]{1}\.[0-2]{1}[0,2,4,5,9]{1}[0,2,4,5,8]{1}\.[0-2]{1}[0,2,4,5,9]{1}[0,2,4,5,8]{1}\.[0-9]{1,3}$/
