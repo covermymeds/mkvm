@@ -21,9 +21,15 @@ class Autoip < Plugin
     # if no subnet specified, use the APP_ENV
     options[:subnet] = options[:app_env] if ! options[:subnet]
     if ! options[:ip]
+      # Remove any 'DOMAIN\' prefix from the username
+      username = options[:username]
+      username.gsub(/^.+\\(.*)/, '\1')
       puts "Requesting IP in #{options[:subnet]} vlan"
+
       # Get an IP from our IPAM system
-      uri = URI.parse("#{options[:auto_uri]}/api/getFreeIP.php?subnet=#{options[:subnet]}&host=#{options[:hostname]}&user=#{options[:username]}")
+      uri = "#{options[:auto_uri]}/api/getFreeIP.php?subnet=#{options[:subnet]}&host=#{options[:hostname]}&user=#{username}"
+      uri = URI.escape(uri)
+      uri = URI.parse(uri)
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = true
       request = Net::HTTP::Get.new(uri.request_uri)
