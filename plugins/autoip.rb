@@ -23,7 +23,7 @@ class Autoip < Plugin
     if ! options[:ip]
       # Remove any 'DOMAIN\' prefix from the username
       username = options[:username]
-      username.gsub(/^.+\\(.*)/, '\1')
+      username = username.gsub(/^.+\\(.*)/, '\1')
       puts "Requesting IP in #{options[:subnet]} vlan"
 
       # Get an IP from our IPAM system
