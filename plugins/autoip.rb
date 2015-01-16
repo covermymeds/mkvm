@@ -27,7 +27,7 @@ class Autoip < Plugin
       puts "Requesting IP in #{options[:subnet]} vlan"
 
       # Get an IP from our IPAM system
-      uri = "#{options[:auto_uri]}/api/getFreeIP.php?subnet=#{options[:subnet]}&host=#{options[:hostname]}&user=#{username}"
+      uri = "#{options[:auto_uri]}?subnet=#{options[:subnet]}&host=#{options[:hostname]}&user=#{username}"
       uri = URI.escape(uri)
       uri = URI.parse(uri)
       http = Net::HTTP.new(uri.host, uri.port)
