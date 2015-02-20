@@ -1,0 +1,13 @@
+class Example < Plugin
+  def self.defaults
+    options = { :example => 'example' }
+  end
+
+  def self.optparse opts, options
+    opts.separator 'Example options:'
+    opts.on( '--example [string]', "Example option (#{options[:example]})") do |x|
+      options[:example] = x
+    end
+    return opts, options
+  end
+end

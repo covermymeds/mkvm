@@ -1,4 +1,4 @@
-`mkvm.rb` is the cool new way to build VMware guests.  The goal is to be simple to use for common tasks, but allow for customization as needed.
+`mkvm.rb` is an easy-to-use command line mechanism to build VMware guests.  The goal is to be simple to use for common tasks, but allow for customization as needed. Custom functionality can be provided through plugins.
 
 Sane default values are provided for all optional arguments. All defaults can be overridden through the use of command line switches.
 
@@ -6,6 +6,7 @@ Sane default values are provided for all optional arguments. All defaults can be
 * [Usage](#usage)
 * [User Defaults](#user-defaults)
 * [Templates](#templates)
+* [PLugins](#plugins)
 * [Examples](#examples)
 * [License](#license)
 
@@ -27,16 +28,6 @@ Finally, you'll need a copy of the [isolinux](http://www.syslinux.org/wiki/index
 ```shell
 Usage: mkvm.rb [options] hostname
 
-VSphere options:
-    -u, --user USER                  vSphere user name
-    -p, --password PASSWORD          vSphere password
-    -H, --host HOSTNAME              vSphere host
-    -D, --dc DATACENTER              vSphere data center
-    -C, --cluster CLUSTER            vSphere cluster
-        --[no-]insecure              Do not validate vSphere SSL certificate (true)
-        --datastore DATASTORE        vSphere datastore regex to use
-        --isostore ISOSTORE          vSphere ISO store to use
-
 Kickstart options:
     -r, --major VERSION              Major OS release to use (6)
         --url URL                    Kickstart URL
@@ -49,11 +40,18 @@ Kickstart options:
         --app-env APP_ENV            APP_ENV (development)
         --app-id APP_ID              APP_ID
         --extra "ONE=1 TWO=2"        extra args to pass to boot line
-
 ISO options:
         --srcdir DIR                 Directory containing isolinux templates (./isolinux)
         --outdir DIR                 Directory in which to write the ISO (./iso)
-
+VSphere options:
+    -u, --user USER                  vSphere user name
+    -p, --password PASSWORD          vSphere password
+    -H, --host HOSTNAME              vSphere host
+    -D, --dc DATACENTER              vSphere data center
+    -C, --cluster CLUSTER            vSphere cluster
+        --[no-]insecure              Do not validate vSphere SSL certificate (true)
+        --datastore DATASTORE        vSphere datastore regex to use
+        --isostore ISOSTORE          vSphere ISO store to use
 VM options:
     -t, --template TEMPLATE          VM template: small, medium, large, xlarge
         --custom cpu,mem,sda         CPU, Memory, and /dev/sda
@@ -63,16 +61,25 @@ VM options:
         --[no-]upload                Upload the ISO to the ESX cluster (true)
         --[no-]vm                    Build the VM (true)
         --[no-]power                 Power on the VM after building it (true)
-
 General options:
     -v, --debug                      Verbose output
     -h, --help                       Display this screen
 ```
 The only mandatory arguments are `-t` (or `--custom`) and a hostname. 
 
-If no `-i` flag is supplied, `mkvm.rb` will perform a DNS lookup for the supplied hostname and use the results.  If no `-i` flag is supplied and the DNS lookup fails, `mkvm.rb` will fail.
+If no `-i` flag is supplied, `mkvm.rb` will, by default, perform a DNS lookup for the supplied hostname and use the results.  If no `-i` flag is supplied and the DNS lookup fails, `mkvm.rb` will fail.
 
 The `srcdir` parameter is expected to be a directory that contains sub-directories that match the major version of the system being built.  That is, if you're building a RHEL 7 system, your `srcdir` directory should have a sub-directory named `7` that contains the isolinux files for that release.
+
+```shell
+$ tree -d isolinux/
+isolinux/
+├── 6
+├── 7
+└── tmp
+
+3 directories
+```
 
 The default value of `srcdir` is the isolinux directory in this repo, which contains the sub-directories and templates expected.
 
@@ -99,21 +106,21 @@ Arguments that accept sizes can pass human-friendly suffixes:
 If a file `.mkvm.yaml` exists in the user's home directory, it will be loaded and the values found therein will be used for defaults. These defauls can still be overridden by command-line switches.
 
 ```yaml
-host: vcenter.example.com
-dc: primary
-cluster: production
-username: administrator
-ds_regex: encrypted
-iso_store: ESX_ISO
-url: https://ks.example.com/rhel6.ks
-gateway: 192.168.1.1
-netmask: 255.255.255.0
-dns: 192.168.1.2,192.168.1.3
-domain: example.com
-app_env: development
-vlan: Production
-srcdir: /nfs/isolinux
-outdir: /nfs/isos
+:host: vcenter.example.com
+:dc: primary
+:cluster: production
+:username: administrator
+:ds_regex: encrypted
+:iso_store: ESX_ISO
+:url: https://ks.example.com/rhel6.ks
+:gateway: 192.168.1.1
+:netmask: 255.255.255.0
+:dns: 192.168.1.2,192.168.1.3
+:domain: example.com
+:app_env: development
+:vlan: Production
+:srcdir: /nfs/isolinux
+:outdir: /nfs/isos
 ```
 
 See `mkvm.yaml.sample` for a full example.
@@ -127,6 +134,19 @@ mkvm knows about four pre-defined VM sizes:
 | medium | 2 | 2G | 15GB |
 | large | 2 | 4G | 15GB |
 | xlarge | 2 | 8G | 15GB |
+
+## Plugins
+`mkbm.rb` will look in the `plugins` directory for all files with an `.rb` extension.  Any such files will be loaded.  This allows users to extend the functionality of `mkvm.rb` on their own.
+
+All plugins should extend the `Plugin` class, defined in `lib/plugin.rb`.  Each plugin has numerous opportunities to interact with the overall process.
+
+Plugins are **not** instantiated.
+
+Several defaul plugins are provided:
+* ip_pre_validate.rb: if no gateway address is provided, assume the user wants the .1 address of the network on which the VM is being created
+* ip_post_validate.rb: perform a variety of santify checks to ensure the IP information is sane.
+
+An example plugin is also provided (but not activated) to demonstrate how to add custom command line options.
 
 ## Examples
 To create a small VM named foobar:

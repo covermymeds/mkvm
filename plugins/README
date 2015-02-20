@@ -1,0 +1,1 @@
+mkvm plugins should extend the Plugin class defined in ../lib/plugin.rb
