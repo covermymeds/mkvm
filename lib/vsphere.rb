@@ -7,6 +7,7 @@ class Vsphere < Mkvm
       'large' => [2, '4G', '15G'],
       'xlarge' => [2, '8G', '15G'],
     }
+
   end
 
   def defaults
@@ -128,6 +129,20 @@ class Vsphere < Mkvm
     debug( 'INFO', "sdb_path: #{options[:sdb_path]}" ) if options[:sdb_path] and options[:debug]
     debug( 'INFO', "VLAN: #{options[:vlan]}" ) if options[:debug]
 
+    if ! options[:portgroup] and ! options[:dvswitch]
+      abort "To properly configure the network interface you need a map 
+in ~/.mkvm.yaml for both :dvswitch and :portgroup.  These 
+structures map Datacenter name to dvswitch UUID and subnet 
+to dvportGroupKey.  The mappings looks something like: 
+    
+:dvswitch:
+  'dc1': 'dvswitch1uuid'
+  'dc2': 'dvswitch2uuid'
+:portgroup:
+  '192.168.20.0': 'dvportgroup1-number'
+  '192.168.30.0': 'dvportgroup2-number'"
+    end
+
     if options[:upload_iso] and options[:make_vm] and not options[:password]
       print 'Password: '
       options[:password] = STDIN.noecho(&:gets).chomp
@@ -222,8 +237,11 @@ class Vsphere < Mkvm
         :label => 'Network Adapter 1',
         :summary => options[:vlan]
       },
-        :backing => RbVmomi::VIM.VirtualEthernetCardNetworkBackingInfo(
-          :deviceName => options[:vlan]
+        :backing => RbVmomi::VIM.VirtualEthernetCardDistributedVirtualPortBackingInfo(
+	  :port => RbVmomi::VIM.DistributedVirtualSwitchPortConnection(
+             :portgroupKey => options[:portgroup][options[:subnet]],
+             :switchUuid => options[:dvswitch][options[:dc]],
+          ),
       ),
         :addressType => 'generated'
       )

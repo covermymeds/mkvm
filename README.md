@@ -65,7 +65,7 @@ General options:
     -v, --debug                      Verbose output
     -h, --help                       Display this screen
 ```
-The only mandatory arguments are `-t` (or `--custom`) and a hostname. 
+The only mandatory arguments are `-t` (or `--custom`) and a hostname with no plugins installed.  The plugins provided in this repo will enforce additional mandatory arguments. 
 
 If no `-i` flag is supplied, `mkvm.rb` will, by default, perform a DNS lookup for the supplied hostname and use the results.  If no `-i` flag is supplied and the DNS lookup fails, `mkvm.rb` will fail.
 
@@ -103,7 +103,7 @@ Arguments that accept sizes can pass human-friendly suffixes:
 * T = Tebibytes
 
 ## User Defaults
-If a file `.mkvm.yaml` exists in the user's home directory, it will be loaded and the values found therein will be used for defaults. These defauls can still be overridden by command-line switches.
+If a file `.mkvm.yaml` exists in the user's home directory, it will be loaded and the values found therein will be used for defaults. These defauls can still be overridden by command-line switches. The `:dvswitch` and `:portgroup` structures must be defined here.
 
 ```yaml
 :host: vcenter.example.com
@@ -121,6 +121,12 @@ If a file `.mkvm.yaml` exists in the user's home directory, it will be loaded an
 :vlan: Production
 :srcdir: /nfs/isolinux
 :outdir: /nfs/isos
+:dvswitch:
+  'dc1': 'dvswitch1uuid'
+  'dc2': 'dvswitch2uuid'
+:portgroup':
+  '192.168.20.0': 'dvportgroup1-number'
+  '192.168.30.0': 'dvportgroup2-number'
 ```
 
 See `mkvm.yaml.sample` for a full example.
