@@ -9,11 +9,15 @@ require 'optparse'
 require 'rbvmomi'
 require 'yaml'
 require 'io/console'
+require "net/https"
+require "uri"
+require "ipaddr"
+require "net/smtp"
 
 # establish a couple of sane default values
 options = {
-  'username'   => ENV['USER'],
-  'insecure'   => true,
+  :username   => ENV['USER'],
+  :insecure   => true,
 }
 
 # read config from mkvm.yaml, if it exists
@@ -56,6 +60,10 @@ optparse = OptionParser.new do|opts|
   opts.on( '--[no-]insecure', "Do not validate vSphere SSL certificate (#{options[:insecure]})") do |x|
     options[:insecure] = x
   end
+  opts.separator 'automated IPAM options:'
+  opts.on( '--auto-uri uri', "URI full path for auto IP system ex: http://blah/api/blah.php(#{options[:auto_uri]})") do |x|
+    options[:auto_uri] = x
+  end
   opts.separator ''
   opts.separator 'General options:'
   opts.on( '-v', '--debug', 'Verbose output') do
@@ -84,7 +92,7 @@ end
 hostname = ARGV[0].downcase
 
 # we don't want to require passords on the command line
-if not options['password']
+if not options[:password]
   print 'Password: '
   options[:password] = STDIN.noecho(&:gets).chomp
   puts ''
@@ -100,12 +108,46 @@ debug( 'INFO', "Connected to datacenter #{options[:dc]}" )
 vm = dc.find_vm(hostname) or abort "Unable to locate #{hostname} in data center #{:dc}"
 pwrs = vm.runtime.powerState
 
+# If the vm is powered on, power off and send email
+# If the vm is powered off, deletd the vm and remove from IPAM
 if pwrs == 'poweredOn'
   puts "Powering off #{hostname}"
   vm.PowerOffVM_Task.wait_for_completion
-  puts vm.runtime.powerState 
+
+  msg_body = <<END_MSG
+From: #{options[:username]} <#{options[:username]}@covermymeds.com>
+To: Doug Morris <prodops@covermymeds.com>
+Subject: Power off #{hostname} for to delete from VMware
+
+#{hostname} has been powered off for VMware removal, please run the rmvm.rb script again to destroy vm.
+
+
+END_MSG
+
+  Net::SMTP.start('mail.covermymeds.com', 25) do |smtp|
+    smtp.send_message msg_body,
+    "#{options[:username]}@covermymeds.com",
+    'prodops@covermymeds.com'
+  end
+
 elsif pwrs == 'poweredOff'
   puts "Destroying #{hostname}"
   vm.Destroy_Task.wait_for_completion
-  puts "#{hostname} has been destroyed/removed."
+  puts "#{hostname} has been destroyed/removed from VMware."
+
+  puts "Removing #{options[:hostname]} from IPAM...."
+
+  # Send delete request to phpipam system
+  uri = "#{options[:auto_uri]}?host=#{hostname}"
+  uri = URI.escape(uri)
+  uri = URI.parse(uri)
+  http = Net::HTTP.new(uri.host, uri.port)
+  http.use_ssl = true
+  request = Net::HTTP::Get.new(uri.request_uri)
+  response = http.request(request)
+  if response.code != "200"
+    abort "There was an error requesting your IP address, IPAM returned #{response.code}"
+  end
+  del_response = response.body
+  puts "#{del_response}"
 end
