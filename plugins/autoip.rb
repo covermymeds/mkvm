@@ -19,8 +19,13 @@ class Autoip < Plugin
 
   def self.pre_validate options
     # if no subnet specified, use the APP_ENV
-    options[:subnet] = options[:app_env] if ! options[:subnet]
     if ! options[:ip]
+      if ! options[:subnet]
+        abort "Subnet (-s) is a required parameter.  This needs to be a dotted quad (ie. 10.1.4.0)" 
+      end
+      if ! options[:auto_uri]
+	abort "IPAM uri (--auto_uri) is required."
+      end
       # Remove any 'DOMAIN\' prefix from the username
       username = options[:username]
       username = username.gsub(/^.+\\(.*)/, '\1')

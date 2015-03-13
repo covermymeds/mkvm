@@ -53,7 +53,7 @@ class Ip < Plugin
 
   def self.post_validate options
     if ! options[:ip]
-      about "ERROR: No IP address specified!"
+      abort "ERROR: No IP address specified!"
     end
 
     if options[:ip] !~ Resolv::IPv4::Regex
