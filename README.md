@@ -56,7 +56,7 @@ VM options:
     -t, --template TEMPLATE          VM template: small, medium, large, xlarge
         --custom cpu,mem,sda         CPU, Memory, and /dev/sda
         --sdb [10G{,/pub}]           Add /dev/sdb. Size and mount point optional.
-        --vlan VLAN                  VLAN
+        --vlan VLAN                  VLAN (This option is deprecated, but code left in place commented out if you need it)
         --[no-]iso                   Build ISO (true)
         --[no-]upload                Upload the ISO to the ESX cluster (true)
         --[no-]vm                    Build the VM (true)
@@ -89,7 +89,7 @@ Most of the arguments should be self-explanatory, but a few merit discussion.
 
 * **--datastore**: this is a regular expression that `mkvm.rb` will use to find the datastore to use when building the VM. `mkvm.rb` will use this regex to enumerate all the matching datastores and then select the one with the most space free. This should help ensure that `mkvm.rb` doesn't over-populate any single datastore (unless, of course, you only have a single datastore!).  This also allows you to control, on the fly, which datastore to use.
 * **--isostore**: this is the datastore to which the resultant ISO file will be pushed. This store should be accessible by all the hosts within the cluster, to ensure that any host can build the VM.  A low-performance NFS share is usually suitable for this purpose.
-* **--vlan**: this is the full name of the VLAN to which the VM will be assigned. You may need to wrap this option in quotes.
+* **--vlan**: this is the full name of the VLAN to which the VM will be assigned. This option is commented out as vlan does not apply to DV Switching.  If you don't use DV Switching then you may want to uncomment this code.
 * **--gateway**: this is the default route to use for this VM.  It will be used for the Kickstart process, as well as for the resultant VM once built.  If not specified, it defaults to the .1 address in the same network as the IP of the VM.  Thus, if the VM IP is 192.168.1.5 and no gateway is specified, `mkvm.rb` will use 192.168.1.1.
 * **--sdb [size{,path}]**: with no additional arguments, `sdb` adds a 10G /dev/sdb disk to the VM.  Additionally, the value `SDB` is added to the Kickstart boot line.  You may specify a size for your /dev/sdb disk.  You may also specify a mount point for this disk.  If you do so, the resultant Kickstart boot line will look like `SDB=/your/path`.  Note that `mkvm.rb` **does not** actually mount this for you.  It is your responsibility to handle this in your Kickstart file.
 * **--app-env**: this is a value that gets added to the Kickstart command line. Your Kickstart process can parse this option and act accordingly. We use this to define a custom Puppet fact for whether the server is production, testing, development, etc.
@@ -118,15 +118,18 @@ If a file `.mkvm.yaml` exists in the user's home directory, it will be loaded an
 :dns: 192.168.1.2,192.168.1.3
 :domain: example.com
 :app_env: development
-:vlan: Production
 :srcdir: /nfs/isolinux
 :outdir: /nfs/isos
 :dvswitch:
   'dc1': 'dvswitch1uuid'
   'dc2': 'dvswitch2uuid'
 :portgroup':
-  '192.168.20.0': 'dvportgroup1-number'
-  '192.168.30.0': 'dvportgroup2-number'
+  '192.168.20.0':
+    name: 'Production'
+    portgroup: 'dvportgroup1-number'
+  '192.168.30.0':
+    name: 'DMZ'
+    portgroup: 'dvportgroup2-number'
 ```
 
 See `mkvm.yaml.sample` for a full example.

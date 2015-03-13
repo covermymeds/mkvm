@@ -11,8 +11,17 @@
 :url: https://ks.example.com/rhel6.ks
 :dir: /usr/local/isolinux
 :domain: example.com
-:vlan: Production
 :make_iso: true
 :upload_iso: true
 :make_vm: true
 :power_on: true
+:dvswitch:
+  'dc1': 'dvswitch1uuid'
+  'dc2': 'dvswitch2uuid'
+:network':
+  '192.168.20.0':
+    name: 'Prodcution'
+    portgroup: 'dvportgroup1-number'
+  '192.168.30.0':
+    name: 'DMZ'
+    portgroup: 'dvportgroup2-number'

@@ -16,7 +16,7 @@ class Vsphere < Mkvm
       :insecure => true,
       :upload_iso => true,
       :make_vm => true,
-      :vlan => 'Production',
+      #:vlan => 'Production',
       :power_on => true,
     } 
   end
@@ -57,9 +57,9 @@ class Vsphere < Mkvm
       opts.on( '--sdb [10G{,/pub}]', 'Add /dev/sdb. Size and mount point optional.' ) do |x|
         options[:raw_sdb] = x || '10G'
       end
-      opts.on( '--vlan VLAN', "VLAN (#{options[:vlan]})") do |x|
-        options[:vlan] = x
-      end
+      #opts.on( '--vlan VLAN', "VLAN (#{options[:vlan]})") do |x|
+      #  options[:vlan] = x
+      #end
       opts.on( '--[no-]upload', "Upload the ISO to the ESX cluster (#{options[:upload_iso]})") do |x|
         options[:upload_iso] = x
       end
@@ -127,20 +127,24 @@ class Vsphere < Mkvm
     debug( 'INFO', "sda: #{options[:sda]} KiB" ) if options[:debug]
     debug( 'INFO', "sdb: #{options[:sdb]} KiB" ) if options['sdb'] and options[:debug]
     debug( 'INFO', "sdb_path: #{options[:sdb_path]}" ) if options[:sdb_path] and options[:debug]
-    debug( 'INFO', "VLAN: #{options[:vlan]}" ) if options[:debug]
+    #debug( 'INFO', "VLAN: #{options[:vlan]}" ) if options[:debug]
 
-    if ! options[:portgroup] and ! options[:dvswitch]
+    if ! options[:network] and ! options[:dvswitch]
       abort "To properly configure the network interface you need a map 
-in ~/.mkvm.yaml for both :dvswitch and :portgroup.  These 
+in ~/.mkvm.yaml for both :dvswitch and :network.  These 
 structures map Datacenter name to dvswitch UUID and subnet 
-to dvportGroupKey.  The mappings looks something like: 
+to VLAN name and dvportGroupKey.  The mappings looks something like: 
     
 :dvswitch:
   'dc1': 'dvswitch1uuid'
   'dc2': 'dvswitch2uuid'
 :portgroup:
-  '192.168.20.0': 'dvportgroup1-number'
-  '192.168.30.0': 'dvportgroup2-number'"
+  '192.168.20.0':
+    name: 'Production'
+    portgroup: 'dvportgroup1-number'
+  '192.168.30.0':
+    name: 'DMZ'
+    portgroup: 'dvportgroup2-number'"
     end
 
     if options[:upload_iso] and options[:make_vm] and not options[:password]
@@ -235,11 +239,11 @@ to dvportGroupKey.  The mappings looks something like:
           :key => 0,
           :deviceInfo => {
         :label => 'Network Adapter 1',
-        :summary => options[:vlan]
+	:summary => options[:network][options[:subnet]]['name']
       },
         :backing => RbVmomi::VIM.VirtualEthernetCardDistributedVirtualPortBackingInfo(
 	  :port => RbVmomi::VIM.DistributedVirtualSwitchPortConnection(
-             :portgroupKey => options[:portgroup][options[:subnet]],
+             :portgroupKey => options[:network][options[:subnet]]['portgroup'],
              :switchUuid => options[:dvswitch][options[:dc]],
           ),
       ),
