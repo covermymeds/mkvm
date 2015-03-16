@@ -29,41 +29,45 @@ Finally, you'll need a copy of the [isolinux](http://www.syslinux.org/wiki/index
 Usage: mkvm.rb [options] hostname
 
 Kickstart options:
-    -r, --major VERSION              Major OS release to use (6)
-        --url URL                    Kickstart URL
+    -r, --major VERSION              Major OS release to use ()
+        --url URL                    Kickstart URL ()
     -k, --ksdevice TYPE              ksdevice type to use (eth0)
     -i, --ip ADDRESS                 IP address
     -g, --gateway GATEWAY            Gateway address
-    -m, --netmask NETMASK            Subnet mask (255.255.255.0)
-    -d, --dns DNS1{,DNS2,...}        DNS server(s) to use
-        --domain DOMAIN              DNS domain to append to hostname
-        --app-env APP_ENV            APP_ENV (development)
+    -m, --netmask NETMASK            Subnet mask ()
+    -d, --dns DNS1{,DNS2,...}        DNS server(s) to use ()
+        --domain DOMAIN              DNS domain to append to hostname ()
+        --app-env APP_ENV            APP_ENV ()
         --app-id APP_ID              APP_ID
         --extra "ONE=1 TWO=2"        extra args to pass to boot line
 ISO options:
         --srcdir DIR                 Directory containing isolinux templates (./isolinux)
         --outdir DIR                 Directory in which to write the ISO (./iso)
+        --[no-]iso                   Build ISO (true)
 VSphere options:
-    -u, --user USER                  vSphere user name
+    -u, --user USER                  vSphere user name ($USER)
     -p, --password PASSWORD          vSphere password
-    -H, --host HOSTNAME              vSphere host
-    -D, --dc DATACENTER              vSphere data center
-    -C, --cluster CLUSTER            vSphere cluster
+    -H, --host HOSTNAME              vSphere host ()
+    -D, --dc DATACENTER              vSphere data center ()
+    -C, --cluster CLUSTER            vSphere cluster ()
         --[no-]insecure              Do not validate vSphere SSL certificate (true)
-        --datastore DATASTORE        vSphere datastore regex to use
-        --isostore ISOSTORE          vSphere ISO store to use
+        --datastore DATASTORE        vSphere datastore regex to use ()
+        --isostore ISOSTORE          vSphere ISO store to use ()
 VM options:
     -t, --template TEMPLATE          VM template: small, medium, large, xlarge
         --custom cpu,mem,sda         CPU, Memory, and /dev/sda
         --sdb [10G{,/pub}]           Add /dev/sdb. Size and mount point optional.
-        --vlan VLAN                  VLAN (This option is deprecated, but code left in place commented out if you need it)
-        --[no-]iso                   Build ISO (true)
         --[no-]upload                Upload the ISO to the ESX cluster (true)
         --[no-]vm                    Build the VM (true)
         --[no-]power                 Power on the VM after building it (true)
+automated IPAM options:
+    -s, --subnet SUBNET              subnet in dotted quad, ex: 10.10.2.0
+        --auto-uri uri               URI full path for auto IP system ex: http://blah/api/blah.php()
+IP options:
+    -G, --gw-octet                   Gateway octet (1)
 General options:
-    -v, --debug                      Verbose output
-    -h, --help                       Display this screen
+    -v, --debug                      Enable verbose output
+    -h, --help                       This help message
 ```
 The only mandatory arguments are `-t` (or `--custom`) and a hostname with no plugins installed.  The plugins provided in this repo will enforce additional mandatory arguments. 
 
