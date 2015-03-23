@@ -39,8 +39,6 @@ class Autoip < Plugin
                                      } )
       uri = URI.escape(uri)
       uri = URI.parse(uri)
-      puts uri
-      exit 1
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = true
       request = Net::HTTP::Get.new(uri.request_uri)
