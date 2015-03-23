@@ -7,12 +7,12 @@ require "ipaddr"
 class Autoip < Plugin
 
   def self.optparse opts, options
-    opts.separator 'automated IPAM options:'
+    opts.separator 'IPAM options:'
     opts.on( '-s subnet', '--subnet SUBNET', 'subnet in dotted quad, ex: 10.10.2.0') do |x|
       options[:subnet] = x
     end
-    opts.on( '--auto-uri uri', "URI full path for auto IP system ex: http://blah/api/blah.php(#{options[:auto_uri]})") do |x|
-      options[:auto_uri] = x
+    opts.on( '--add-uri uri', "URI from which to request an IP address (#{options[:add_uri]})") do |x|
+      options[:add_uri] = x
     end
     return opts, options
   end
@@ -23,8 +23,8 @@ class Autoip < Plugin
       if ! options[:subnet]
         abort "Subnet (-s) is a required parameter.  This needs to be a dotted quad (ie. 10.1.4.0)" 
       end
-      if ! options[:auto_uri]
-	abort "IPAM uri (--auto_uri) is required."
+      if ! options[:add_uri]
+	abort "IPAM uri (--add_uri) is required."
       end
       # Remove any 'DOMAIN\' prefix from the username
       username = options[:username]
@@ -32,9 +32,15 @@ class Autoip < Plugin
       puts "Requesting IP in #{options[:subnet]} vlan"
 
       # Get an IP from our IPAM system
-      uri = "#{options[:auto_uri]}?subnet=#{options[:subnet]}&host=#{options[:hostname]}&user=#{username}"
+      uri = options[:add_uri].gsub(/SUBNET|HOSTNAME|USER/, {
+                                    'SUBNET'   => options[:subnet],
+                                    'HOSTNAME' => options[:hostname],
+                                    'USER'     => username
+                                     } )
       uri = URI.escape(uri)
       uri = URI.parse(uri)
+      puts uri
+      exit 1
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = true
       request = Net::HTTP::Get.new(uri.request_uri)
