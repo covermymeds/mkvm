@@ -128,7 +128,7 @@ if pwrs == 'poweredOn'
   msg_body = <<END_MSG
 From: #{options[:mail_from]}
 To: #{options[:mail_to]}
-Subject: Power off #{hostname} for to delete from VMware
+Subject: Powered off #{hostname} for deletion from VMware
 
 #{hostname} has been powered off for VMware removal, please run the rmvm.rb script again to destroy vm.
 
