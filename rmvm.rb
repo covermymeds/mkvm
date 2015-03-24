@@ -116,7 +116,7 @@ dc = vim.serviceInstance.find_datacenter(options[:dc]) or abort "vSphere data ce
 
 debug( 'INFO', "Connected to datacenter #{options[:dc]}" )
 
-vm = dc.find_vm(hostname) or abort "Unable to locate #{hostname} in data center #{:dc}"
+vm = dc.find_vm(hostname) or abort "Unable to locate #{hostname} in data center #{options[:dc]}"
 pwrs = vm.runtime.powerState
 
 # If the vm is powered on, power off and send email
@@ -126,8 +126,8 @@ if pwrs == 'poweredOn'
   vm.PowerOffVM_Task.wait_for_completion
 
   msg_body = <<END_MSG
-From: #{options[:username]} <#{options[:mail_from]}>
-To: #{options[:mail_to]} <#{options[:mail_to]}>
+From: #{options[:mail_from]}
+To: #{options[:mail_to]}
 Subject: Power off #{hostname} for to delete from VMware
 
 #{hostname} has been powered off for VMware removal, please run the rmvm.rb script again to destroy vm.
@@ -158,7 +158,7 @@ elsif pwrs == 'poweredOff'
   request = Net::HTTP::Get.new(uri.request_uri)
   response = http.request(request)
   if response.code != "200"
-    abort "There was an error requesting your IP address, IPAM returned #{response.code}"
+    abort "There was an error with your IPAM request: #{response.code}"
   end
   del_response = response.body
   puts "#{del_response}"
