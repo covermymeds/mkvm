@@ -158,7 +158,7 @@ elsif pwrs == 'poweredOff'
   request = Net::HTTP::Get.new(uri.request_uri)
   response = http.request(request)
   if response.code != "200"
-    abort "There was an error requesting your IP address, IPAM returned #{response.code}"
+    abort "There was an error removing the IP address, IPAM returned #{response.code}"
   end
   del_response = response.body
   puts "#{del_response}"
