@@ -3,16 +3,17 @@
 # Author: Doug Morris <dmorris@covermymeds.com>/Scott Merrill <smerrill@covermymeds.com>
 # Released under the terms of the GPL version 2
 #   http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt
-require 'rubygems'
 gem 'rbvmomi', '1.6.0'
+require "erb"
+require 'io/console'
+require "ipaddr"
+require "net/https"
+require "net/smtp"
 require 'optparse'
 require 'rbvmomi'
-require 'yaml'
-require 'io/console'
-require "net/https"
+require 'rubygems'
 require "uri"
-require "ipaddr"
-require "net/smtp"
+require 'yaml'
 
 # establish a couple of sane default values
 options = {
@@ -60,9 +61,19 @@ optparse = OptionParser.new do|opts|
   opts.on( '--[no-]insecure', "Do not validate vSphere SSL certificate (#{options[:insecure]})") do |x|
     options[:insecure] = x
   end
-  opts.separator 'automated IPAM options:'
-  opts.on( '--auto-uri uri', "URI full path for auto IP system ex: http://blah/api/blah.php(#{options[:auto_uri]})") do |x|
-    options[:auto_uri] = x
+  opts.separator 'Email options'
+  opts.on( '--smtp server', "SMTP server to use to send email (#{options[:mail_server]})") do |x|
+    options[:smtp_server] = x
+  end
+  opts.on( '--from address', "Email address from which to send email (#{options[:mail_from]})") do |x|
+    options[:smtp_server] = x
+  end
+  opts.on( '--to address', "Email address to which to send email (#{options[:mail_to]})") do |x|
+    options[:smtp_server] = x
+  end
+  opts.separator 'IPAM options:'
+  opts.on( '--del-uri uri', "Delete URI for IPAM system (#{options[:del_uri]})") do |x|
+    options[:del_uri] = x
   end
   opts.separator ''
   opts.separator 'General options:'
@@ -105,7 +116,7 @@ dc = vim.serviceInstance.find_datacenter(options[:dc]) or abort "vSphere data ce
 
 debug( 'INFO', "Connected to datacenter #{options[:dc]}" )
 
-vm = dc.find_vm(hostname) or abort "Unable to locate #{hostname} in data center #{:dc}"
+vm = dc.find_vm(hostname) or abort "Unable to locate #{hostname} in data center #{options[:dc]}"
 pwrs = vm.runtime.powerState
 
 # If the vm is powered on, power off and send email
@@ -115,19 +126,20 @@ if pwrs == 'poweredOn'
   vm.PowerOffVM_Task.wait_for_completion
 
   msg_body = <<END_MSG
-From: #{options[:username]} <#{options[:username]}@covermymeds.com>
-To: Doug Morris <prodops@covermymeds.com>
-Subject: Power off #{hostname} for to delete from VMware
+From: #{options[:mail_from]}
+To: #{options[:mail_to]}
+Subject: Powered off #{hostname} for deletion from VMware
 
 #{hostname} has been powered off for VMware removal, please run the rmvm.rb script again to destroy vm.
 
 
 END_MSG
 
-  Net::SMTP.start('mail.covermymeds.com', 25) do |smtp|
-    smtp.send_message msg_body,
-    "#{options[:username]}@covermymeds.com",
-    'prodops@covermymeds.com'
+  # only send email if we have an SMTP server, a from address, and a to address
+  if options[:mail_server] and options[:mail_from] and options[:mail_to]
+    Net::SMTP.start(options[:mail_server], 25) do |smtp|
+      smtp.send_message msg_body, options[:mail_from], options[:mail_to]
+    end
   end
 
 elsif pwrs == 'poweredOff'
@@ -138,7 +150,7 @@ elsif pwrs == 'poweredOff'
   puts "Removing #{options[:hostname]} from IPAM...."
 
   # Send delete request to phpipam system
-  uri = "#{options[:auto_uri]}?host=#{hostname}"
+  uri = options[:del_uri].gsub('HOSTNAME', hostname)
   uri = URI.escape(uri)
   uri = URI.parse(uri)
   http = Net::HTTP.new(uri.host, uri.port)
@@ -146,7 +158,7 @@ elsif pwrs == 'poweredOff'
   request = Net::HTTP::Get.new(uri.request_uri)
   response = http.request(request)
   if response.code != "200"
-    abort "There was an error requesting your IP address, IPAM returned #{response.code}"
+    abort "There was an error with your IPAM request: #{response.code}"
   end
   del_response = response.body
   puts "#{del_response}"
