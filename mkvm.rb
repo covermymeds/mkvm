@@ -83,9 +83,9 @@ options[:hostname] = ARGV[0].downcase
 # so that they might set values required by the core modules
 plugins.each { |p| Kernel.const_get(p).pre_validate(options) }
 
-ks.validate(options)
 iso.validate(options)
 vsphere.validate(options)
+ks.validate(options)
 
 # and we let plugins run another validation after the core modules
 plugins.each { |p| Kernel.const_get(p).post_validate(options) }
