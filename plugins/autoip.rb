@@ -14,6 +14,12 @@ class Autoip < Plugin
     opts.on( '--add-uri uri', "URI from which to request an IP address (#{options[:add_uri]})") do |x|
       options[:add_uri] = x
     end
+    opts.on( '--apiapp apiapp', "Name of api application to use (#{options[:apiapp]})") do |x|
+      options[:apiapp] = x
+    end
+    opts.on( '--apitoken apitoken', "Token to use with the api application (#{options[:apitoken]})") do |x|
+      options[:apitoken] = x
+    end
     return opts, options
   end
 
@@ -32,11 +38,7 @@ class Autoip < Plugin
       puts "Requesting IP in #{options[:subnet]} vlan"
 
       # Get an IP from our IPAM system
-      uri = options[:add_uri].gsub(/SUBNET|HOSTNAME|USER/, {
-                                    'SUBNET'   => options[:subnet],
-                                    'HOSTNAME' => options[:hostname],
-                                    'USER'     => username
-                                     } )
+      uri = "#{options[:add_uri]}subnet=#{options[:subnet]}&apiapp=#{options[:apiapp]}&apitoken=#{options[:apitoken]}&host=#{options[:hostname]}&user=#{username}"
       uri = URI.escape(uri)
       uri = URI.parse(uri)
       http = Net::HTTP.new(uri.host, uri.port)
