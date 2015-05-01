@@ -38,7 +38,13 @@ class Autoip < Plugin
       puts "Requesting IP in #{options[:subnet]} vlan"
 
       # Get an IP from our IPAM system
-      uri = "#{options[:add_uri]}subnet=#{options[:subnet]}&apiapp=#{options[:apiapp]}&apitoken=#{options[:apitoken]}&host=#{options[:hostname]}&user=#{username}"
+      uri = options[:add_uri].gsub(/SUBNET|HOSTNAME|USER|APIAPP|APITOKEN/, {
+                                     'SUBNET'   => options[:subnet],
+                                     'HOSTNAME' => options[:hostname],
+                                     'USER'     => username,
+                                     'APIAPP'   => options[:apiapp],
+                                     'APITOKEN' => options[:apitoken],
+                                      } )
       uri = URI.escape(uri)
       uri = URI.parse(uri)
       http = Net::HTTP.new(uri.host, uri.port)
