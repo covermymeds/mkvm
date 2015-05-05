@@ -15,6 +15,10 @@
 :upload_iso: true
 :make_vm: true
 :power_on: true
+:add_uri: https://ipam.dev/api/getFreeIP.php?subnet=SUBNET&apiapp=APIAPP&apitoken=APITOKEN&host=HOSTNAME&user=USER
+:del_uri: https://ipam.dev/api/removeHost.php?host=HOSTNAME&apiapp=APIAPP&apitoken=APITOKEN
+:apiapp: ipamip
+:apitoken: ewqrpo3423sfghHYLM
 :dvswitch:
   'dc1': 'dvswitch1uuid'
   'dc2': 'dvswitch2uuid'

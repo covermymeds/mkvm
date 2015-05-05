@@ -75,6 +75,12 @@ optparse = OptionParser.new do|opts|
   opts.on( '--del-uri uri', "Delete URI for IPAM system (#{options[:del_uri]})") do |x|
     options[:del_uri] = x
   end
+  opts.on( '--apiapp apiapp', "Name of api application to use (#{options[:apiapp]})") do |x|
+    options[:apiapp] = x
+  end
+  opts.on( '--apitoken apitoken', "Token to use with the api application (#{options[:apitoken]})") do |x|
+    options[:apitoken] = x
+  end
   opts.separator ''
   opts.separator 'General options:'
   opts.on( '-v', '--debug', 'Verbose output') do
