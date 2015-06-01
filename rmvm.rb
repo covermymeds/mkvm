@@ -156,7 +156,7 @@ elsif pwrs == 'poweredOff'
   puts "Removing #{options[:hostname]} from IPAM...."
 
   # Send delete request to phpipam system
-  uri = options[:del_uri].gsub('HOSTNAME', hostname)
+  uri = options[:del_uri].gsub(/APIAPP|APITOKEN|HOSTNAME/, {'APIAPP' => options[:apiapp], 'APITOKEN' => options[:apitoken], 'HOSTNAME' => options[:hostname],})
   uri = URI.escape(uri)
   uri = URI.parse(uri)
   http = Net::HTTP.new(uri.host, uri.port)
