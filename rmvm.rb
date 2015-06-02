@@ -106,7 +106,7 @@ elsif ARGV.count > 1
 end
 
 # Groovy.
-hostname = ARGV[0].downcase
+options[:hostname] = ARGV[0].downcase
 
 # we don't want to require passords on the command line
 if not options[:password]
@@ -156,7 +156,7 @@ elsif pwrs == 'poweredOff'
   puts "Removing #{options[:hostname]} from IPAM...."
 
   # Send delete request to phpipam system
-  uri = options[:del_uri].gsub('HOSTNAME', hostname)
+  uri = options[:del_uri].gsub(/APIAPP|APITOKEN|HOSTNAME/, {'APIAPP' => options[:apiapp], 'APITOKEN' => options[:apitoken], 'HOSTNAME' => options[:hostname],})
   uri = URI.escape(uri)
   uri = URI.parse(uri)
   http = Net::HTTP.new(uri.host, uri.port)
