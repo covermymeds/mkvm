@@ -106,7 +106,7 @@ elsif ARGV.count > 1
 end
 
 # Groovy.
-hostname = ARGV[0].downcase
+options[:hostname] = ARGV[0].downcase
 
 # we don't want to require passords on the command line
 if not options[:password]
