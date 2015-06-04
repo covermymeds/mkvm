@@ -122,7 +122,7 @@ dc = vim.serviceInstance.find_datacenter(options[:dc]) or abort "vSphere data ce
 
 debug( 'INFO', "Connected to datacenter #{options[:dc]}" )
 
-vm = dc.find_vm(hostname) or abort "Unable to locate #{hostname} in data center #{options[:dc]}"
+vm = dc.find_vm(options[:hostname]) or abort "Unable to locate #{hostname} in data center #{options[:dc]}"
 pwrs = vm.runtime.powerState
 
 # If the vm is powered on, power off and send email
