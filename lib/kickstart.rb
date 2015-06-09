@@ -60,8 +60,9 @@ class Kickstart < Mkvm
     end
 
     # finally, let's build up our KS line and add it to the options hash
-    ks_line="ks=#{options[:url]} noverifyssl ksdevice=#{options[:ksdevice]} ip=#{options[:ip]} netmask=#{options[:netmask]} gateway=#{options[:gateway]} hostname=#{options[:hostname]} #{nameserver_string} APP_ENV=#{options[:app_env]}"
-    # add the APP_ID, if one was supplied
+    ks_line="ks=#{options[:url]} noverifyssl ksdevice=#{options[:ksdevice]} ip=#{options[:ip]} netmask=#{options[:netmask]} gateway=#{options[:gateway]} hostname=#{options[:hostname]} #{nameserver_string}"
+    # add APP_ENV and APP_ID, if they were supplied
+    ks_line << " APP_ENV=#{options[:app_env]}" if options[:app_env]
     ks_line << " APP_ID=#{options[:app_id]}" if options[:app_id]
     ks_line << " SDB" if options[:sdb]
     ks_line << "=#{options[:sdb_path]}" if options[:sdb_path]
