@@ -44,7 +44,7 @@ class ISO < Mkvm
     text = IO.read( "#{tmp_dir}/isolinux/isolinux.cfg" )
     text.gsub!(/KICKSTART_PARMS/, options[:ks_line])
     IO.write( "#{tmp_dir}/isolinux/isolinux.cfg", text )
-    system( "mkisofs -quiet -o #{outdir}/#{isoname} -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -J -R -V '#{hostname[0..32]}' #{tmp_dir}" )
+    system( "mkisofs -quiet -o #{outdir}/#{isoname} -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -J -R -V '#{hostname[0..31]}' #{tmp_dir}" )
     # clean up after ourselves
     FileUtils.rm_rf "#{tmp_dir}"
     FileUtils.chmod_R 0755, "#{outdir}/#{isoname}"
