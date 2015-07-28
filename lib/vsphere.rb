@@ -185,7 +185,7 @@ to VLAN name and dvportGroupKey.  The mappings looks something like:
     vm_cfg = {
       :name => options[:hostname],
       :annotation => annotation,
-      :guestId => 'rhel6_64Guest',
+      :guestId => "rhel#{options[:major]}_64Guest",
       :files => { :vmPathName => "[#{datastore}]" },
       :numCPUs => options[:cpu],
         :memoryMB => options[:mem],
