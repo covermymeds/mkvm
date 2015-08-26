@@ -24,6 +24,8 @@ $ sudo brew install cdrtools
 
 Finally, you'll need a copy of the [isolinux](http://www.syslinux.org/wiki/index.php/ISOLINUX) directory used for creating ISO images (assuming you actually want to create them). The necessary files are included in the `isolinux` directory of this repository. You can also copy the `isolinux` directory from your Linux vendor's installation disc (or disc image). In that case, be sure to copy the `isolinux.cfg` file from this repository into your `isolinux` directory, and adjust as needed.
 
+**Note**: support for building RHEL 7 systems requires vSphere API version 5.5 or higher.
+
 ## Usage
 ```shell
 Usage: mkvm.rb [options] hostname
