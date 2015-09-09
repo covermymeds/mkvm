@@ -122,21 +122,21 @@ dc = vim.serviceInstance.find_datacenter(options[:dc]) or abort "vSphere data ce
 
 debug( 'INFO', "Connected to datacenter #{options[:dc]}" )
 
-vm = dc.find_vm(options[:hostname]) or abort "Unable to locate #{hostname} in data center #{options[:dc]}"
+vm = dc.find_vm(options[:hostname]) or abort "Unable to locate #{options[:hostname]} in data center #{options[:dc]}"
 pwrs = vm.runtime.powerState
 
 # If the vm is powered on, power off and send email
 # If the vm is powered off, deletd the vm and remove from IPAM
 if pwrs == 'poweredOn'
-  puts "Powering off #{hostname}"
+  puts "Powering off #{options[:hostname]}"
   vm.PowerOffVM_Task.wait_for_completion
 
   msg_body = <<END_MSG
 From: #{options[:mail_from]}
 To: #{options[:mail_to]}
-Subject: Powered off #{hostname} for deletion from VMware
+Subject: Powered off #{options[:hostname]} for deletion from VMware
 
-#{hostname} has been powered off for VMware removal, please run the rmvm.rb script again to destroy vm.
+#{options[:hostname]} has been powered off for VMware removal, please run the rmvm.rb script again to destroy vm.
 
 
 END_MSG
@@ -149,9 +149,9 @@ END_MSG
   end
 
 elsif pwrs == 'poweredOff'
-  puts "Destroying #{hostname}"
+  puts "Destroying #{options[:hostname]}"
   vm.Destroy_Task.wait_for_completion
-  puts "#{hostname} has been destroyed/removed from VMware."
+  puts "#{options[:hostname]} has been destroyed/removed from VMware."
 
   puts "Removing #{options[:hostname]} from IPAM...."
 
