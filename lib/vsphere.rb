@@ -281,5 +281,16 @@ to VLAN name and dvportGroupKey.  The mappings looks something like:
       if options[:power_on]
         _vm.PowerOnVM_Task.wait_for_completion
       end
+
+      # Setup anti-affinity rules if needed
+      vc_affinity(dc, cluster, options[:hostname], options[:domain])
   end
+
+  def vc_affinity(dc, cluster, host, domain)
+    short = host.split('.')[0]
+    if hostnum = short =~ /([2-9]$)/
+      Vm_drs.new(dc, cluster, short.chop, domain, hostnum).create
+    end
+  end
+
 end

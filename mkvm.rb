@@ -1,6 +1,5 @@
 #!/usr/bin/env ruby
 require 'rubygems'
-gem 'rbvmomi', '1.6.0'
 require 'fileutils'
 require 'io/console'
 require 'optparse'
@@ -9,6 +8,7 @@ require 'resolv'
 require 'socket'
 require 'yaml'
 require_relative 'lib/mkvm'
+require_relative 'lib/Vm_drs'
 
 libs = %w[ISO Kickstart Vsphere Plugin]
 libs.each { |lib| require_relative "lib/#{lib}" }
