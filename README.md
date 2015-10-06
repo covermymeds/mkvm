@@ -11,10 +11,10 @@ Sane default values are provided for all optional arguments. All defaults can be
 * [License](#license)
 
 ## Installation
-`mkvm.rb` requires the [RbVmomi](https://github.com/vmware/rbvmomi) library from VMware.  Specifically, it requires version 1.6.0.  You can install this with the `gem` command:
+`mkvm.rb` requires the [RbVmomi](https://github.com/vmware/rbvmomi) library from VMware.  Specifically, it requires version 1.8.2.  You can install this with the `gem` command:
 
 ```shell
-$ sudo gem install rbvmomi --version 1.6.0
+$ sudo gem install rbvmomi --version 1.8.2
 ```
 
 You'll also need the `mkisofs` binary in your path.  Linux users can install the appropriate package (genisoimage for RHEL).  Mac users can install the cdrtools package from Homebrew:
