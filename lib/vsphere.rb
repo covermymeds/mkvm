@@ -280,6 +280,18 @@ to VLAN name and dvportGroupKey.  The mappings looks something like:
       _vm = vmFolder.CreateVM_Task( :config => vm_cfg, :pool => rp).wait_for_completion
       if options[:power_on]
         _vm.PowerOnVM_Task.wait_for_completion
+        # sleep 10 seconds, to allow the VM to be built and booted
+        sleep(10)
+        # get the VMs CDROM config
+        cdrom = _vm.config.hardware.device.detect { |x| x.deviceInfo.label == "CD/DVD drive 1" }
+        # reconfigure CDROM to not attach at boot
+        cdrom.connectable.startConnected = false
+        _vm.ReconfigVM_Task( :spec => RbVmomi::VIM::VirtualMachineConfigSpec(deviceChange: [{:operation=>:edit, :device=> cdrom }] ))
+        # answer VMware's question, if necessary
+        if _vm.runtime.question then
+          qID = _vm.runtime.question.id
+          _vm.AnswerVM( questionId: qID, answerChoice: 0 )
+        end
       end
 
       # Setup anti-affinity rules if needed
