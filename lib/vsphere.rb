@@ -283,11 +283,10 @@ to VLAN name and dvportGroupKey.  The mappings looks something like:
         # sleep 10 seconds, to allow the VM to be built and booted
         sleep(10)
         # get the VMs CDROM config
-        d = _vm.config.hardware.device.select { |x| x.deviceInfo.label == "CD/DVD drive 1" }
-        c = d[0]
+        cdrom = _vm.config.hardware.device.detect { |x| x.deviceInfo.label == "CD/DVD drive 1" }
         # reconfigure CDROM to not attach at boot
-        c.connectable.startConnected = false
-        _vm.ReconfigVM_Task( :spec => RbVmomi::VIM::VirtualMachineConfigSpec(deviceChange: [{:operation=>:edit, :device=> c }] ))
+        cdrom.connectable.startConnected = false
+        _vm.ReconfigVM_Task( :spec => RbVmomi::VIM::VirtualMachineConfigSpec(deviceChange: [{:operation=>:edit, :device=> cdrom }] ))
         # answer VMware's question, if necessary
         if _vm.runtime.question then
           qID = _vm.runtime.question.id
