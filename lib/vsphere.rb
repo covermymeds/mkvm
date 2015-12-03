@@ -267,9 +267,12 @@ to VLAN name and dvportGroupKey.  The mappings looks something like:
     end
     vmFolder = dc.vmFolder
     rp = cluster.resourcePool
-    debug( 'INFO', "Building #{options[:hostname]} VM now" ) if options[:debug]
-    require 'pp'
-    PP.pp(vm_cfg)
+    if options[:debug]
+      debug( 'INFO', "Building #{options[:hostname]} VM now" )
+      # also dump the vm_cfg
+      require 'pp'
+      PP.pp(vm_cfg)
+    end
     _vm = vmFolder.CreateVM_Task( :config => vm_cfg, :pool => rp).wait_for_completion
     # upload the ISO as needed
     if options[:upload_iso]
