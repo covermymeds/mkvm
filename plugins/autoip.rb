@@ -54,6 +54,9 @@ class Autoip < Plugin
       if response.code != "200"
         abort "There was an error requesting your IP address, IPAM returned #{response.code}"
       end
+      if response.body =~ /Error: subnet not in IPAM/
+        abort "Error: subnet #{options[:subnet]} not in IPAM"
+      end
       options[:ip] = response.body
       puts "Assigned IP: #{options[:ip]}"
     end

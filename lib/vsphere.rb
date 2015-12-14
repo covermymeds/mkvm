@@ -147,6 +147,12 @@ to VLAN name and dvportGroupKey.  The mappings looks something like:
     portgroup: 'dvportgroup2-number'"
     end
 
+    begin
+      options[:network][options[:subnet]]['name']
+    rescue
+      abort "!! Invalid subnet !! Validate your subnet and dvswitch. "
+    end
+
     if options[:upload_iso] and options[:make_vm] and not options[:password]
       print 'Password: '
       options[:password] = STDIN.noecho(&:gets).chomp
