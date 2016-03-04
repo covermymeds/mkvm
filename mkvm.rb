@@ -10,7 +10,7 @@ require 'yaml'
 require_relative 'lib/mkvm'
 require_relative 'lib/Vm_drs'
 
-libs = %w[ISO Kickstart Vsphere Plugin]
+libs = %w[ISO Kickstart Vsphere Plugin Vm_clone]
 libs.each { |lib| require_relative "lib/#{lib}" }
 
 plugins = []
@@ -32,6 +32,7 @@ iso = ISO.new
 options.merge!(iso.defaults)
 vsphere = Vsphere.new
 options.merge!(vsphere.defaults)
+vm_clone = Vm_clone.new
 
 # plugins may provide defaults, too
 plugins.each do |p| 
@@ -92,11 +93,12 @@ plugins.each { |p| Kernel.const_get(p).post_validate(options) }
 
 # for each of our main tasks, we allow plugins to execute
 # both before and after, to afford the most flexibility
-plugins.each { |p| Kernel.const_get(p).pre_iso(options) }
-iso.execute(options)
-plugins.each { |p| Kernel.const_get(p).post_iso(options) }
+if ! options[:clone]
+  plugins.each { |p| Kernel.const_get(p).pre_iso(options) }
+  iso.execute(options)
+  plugins.each { |p| Kernel.const_get(p).post_iso(options) }
+end
 
 plugins.each { |p| Kernel.const_get(p).pre_vm(options) }
 vsphere.execute(options)
 plugins.each { |p| Kernel.const_get(p).post_vm(options) }
-
