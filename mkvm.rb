@@ -10,7 +10,7 @@ require 'yaml'
 require_relative 'lib/mkvm'
 require_relative 'lib/Vm_drs'
 
-libs = %w[ISO Kickstart Vsphere Plugin Vm_clone]
+libs = %w[ISO Kickstart Vsphere Plugin]
 libs.each { |lib| require_relative "lib/#{lib}" }
 
 plugins = []
@@ -32,7 +32,6 @@ iso = ISO.new
 options.merge!(iso.defaults)
 vsphere = Vsphere.new
 options.merge!(vsphere.defaults)
-vm_clone = Vm_clone.new
 
 # plugins may provide defaults, too
 plugins.each do |p| 
