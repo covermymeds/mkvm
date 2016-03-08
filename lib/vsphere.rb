@@ -157,25 +157,26 @@ The mapping looks something like:
   end
 
   def execute options
-    # we only execute if the options make sense
-    if not options[:upload_iso] or not options[:make_vm] or not options[:clone]
-      exit
-    end
 
     vim = RbVmomi::VIM.connect( { :user => options[:username], :password => options[:password], :host => options[:host], :insecure => options[:insecure] } ) or abort $!
     dc = vim.serviceInstance.find_datacenter(options[:dc]) or abort "vSphere data center #{options[:dc]} not found"
     debug( 'INFO', "Connected to datacenter #{options[:dc]}" ) if options[:debug]
     cluster = dc.hostFolder.children.find { |x| x.name == options[:cluster] } or abort "vSphere cluster #{options[:cluster]} not found"
     debug( 'INFO', "Found VMware cluster #{options[:cluster]}" ) if options[:debug]
+    vmFolder = dc.vmFolder
+    rp = cluster.resourcePool
     # select the datastore with the most available space
     datastore = dc.datastore.find_all { |x| x.name =~ /#{options[:ds_regex]}/ }.max_by{ |i| i.info.freeSpace }.name
     debug( 'INFO', "Selected datastore #{datastore}" ) if options[:debug]
 
     if options[:clone]
       # Clone from Template VM
-      source_vm = dc.find_vm(options[:source_vm]) or abort "Failed to find source vm: #{options[:source_vm]}"
+      source_vm = dc.find_vm("#{options[:source_vm]}") or abort "Failed to find source vm: #{options[:source_vm]}"
       sdb_size = options[:sdb] ? options[:sdb] : false
-      clone_spec = generate_clone_spec(source_vm.config, dc, options[:cpu], options[:mem], datastore, options[:network][options[:subnet]]['name'], cluster, sdb_size)
+      source_vm.datastore.each { |ds|
+        datastore = ds.name if ds.name =~ /VMstore/
+      }
+      clone_spec = generate_clone_spec(source_vm.config, dc, rp, options[:cpu], options[:mem], datastore, options[:network][options[:subnet]]['name'], cluster, sdb_size)
       clone_spec.customization = ip_settings(options)
 
       debug( 'INFO', "Cloning #{options[:source_vm]} to new VM: #{options[:hostname]}" ) if options[:debug]
@@ -184,9 +185,16 @@ The mapping looks something like:
       # Setup anti-affinity rules if needed
       vc_affinity(dc, cluster, options[:hostname], options[:domain])
     else
+
+      # we only execute if the options make sense
+      if not options[:upload_iso] or not options[:make_vm]
+        exit
+      end
+
       # Build a VM from scratch
       time = Time.new
       annotation = "Created by " + options[:username] + " on " + time.strftime("%Y-%m-%d at %H:%M %p")
+      datastore = dc.datastore.find_all { |x| x.name =~ /#{options[:ds_regex]}/ }.max_by{ |i| i.info.freeSpace }.name
       vm_cfg = {
         :name         => options[:hostname],
         :annotation   => annotation,
@@ -197,13 +205,13 @@ The mapping looks something like:
         :numCPUs      => options[:cpu],
         :memoryMB     => options[:mem],
         :deviceChange => [ paravirtual_scsi_controller,
-                           disk_config(datastore, options[:sda]),
+                           disk_config(datastore, options[:sda], 0),
                            cdrom_config(options[:iso_store], options[:hostname]),
                            network_config(options[:network][options[:subnet]]['name'], dc),
                          ],
       }
       if options[:sdb]
-        vm_cfg[:deviceChange].push disk_config(datastore, options[:sdb])
+        vm_cfg[:deviceChange].push disk_config(datastore, options[:sdb], 1)
       end
 
       # stop here if --no-vm
@@ -217,8 +225,6 @@ The mapping looks something like:
         require 'pp'
         PP.pp(vm_cfg)
       end
-      vmFolder = dc.vmFolder
-      rp = cluster.resourcePool
       _vm = vmFolder.CreateVM_Task( :config => vm_cfg, :pool => rp).wait_for_completion
 
       # upload the ISO as needed
@@ -288,9 +294,9 @@ The mapping looks something like:
   end
 
    # Populate the VM clone specification
-  def generate_clone_spec(source_config, dc, cpus, memory, datastore, network, cluster, sdb_size)
+  def generate_clone_spec(source_config, dc, resource_pool, cpus, memory, datastore, network, cluster, sdb_size)
 
-    clone_spec = RbVmomi::VIM.VirtualMachineCloneSpec(:location => RbVmomi::VIM.VirtualMachineRelocateSpec, :template => false, :powerOn => false)
+    clone_spec = RbVmomi::VIM.VirtualMachineCloneSpec(:location => RbVmomi::VIM.VirtualMachineRelocateSpec(:pool => resource_pool), :template => false, :powerOn => false)
     clone_spec.config = RbVmomi::VIM.VirtualMachineConfigSpec(:deviceChange => Array.new, :extraConfig => nil)
 
     card = source_config.hardware.device.find { |d| d.deviceInfo.label == "Network adapter 1" }
@@ -300,11 +306,20 @@ The mapping looks something like:
 
     clone_spec.config.numCPUs  = Integer(cpus)
     clone_spec.config.memoryMB = Integer(memory)
+    
+    controllerkey = 100
+    if sdb_size
+      source_config.hardware.device.each { |device|
+        if device.deviceInfo.summary =~ /SCSI/
+          controllerkey = device.key
+        end
+      }
+      puts controllerkey
+      disk_spec = disk_config(datastore, controllerkey, sdb_size, 1)
+      clone_spec.config.deviceChange.push disk_spec
+    end
 
-    disk_spec = {:operation => :add, :fileOperation => :create, :device => disk_config(datastore, sdb_size) }
-    clone_spec.config.deviceChange.push disk_spec
-
-    clone_spec
+    return clone_spec
   end
 
   def get_switch_port(network, dc)
@@ -325,26 +340,27 @@ The mapping looks something like:
                 :sharedBus => :noSharing
               )
              }
-    device
+    return device
   end
 
-  def disk_config(datastore, size)
+  def disk_config(datastore, controllerkey = 100, size, index)
     disk = {
             :operation     => :add,
             :fileOperation => :create,
             :device        => RbVmomi::VIM.VirtualDisk(
-              :key     => 0,
+              :key     => index,
               :backing => RbVmomi::VIM.VirtualDiskFlatVer2BackingInfo(
                 :fileName        => "[#{datastore}]",
                 :diskMode        => :persistent,
                 :thinProvisioned => false,
               ),
-              :controllerKey => 100,
-              :unitNumber    => 0,
+              :controllerKey => controllerkey,
+              :unitNumber    => index,
               :capacityInKB  => size,
             )
           }
-    disk
+    puts disk
+    return disk
   end
 
   def cdrom_config(isostore, hostname)
@@ -364,7 +380,7 @@ The mapping looks something like:
               :unitNumber    => 0,
             ),
           }
-    cdrom
+    return cdrom
   end
 
   def network_config(portgroup_name, dc)
@@ -374,7 +390,7 @@ The mapping looks something like:
                 :key        => 0,
                 :deviceInfo => {
                   :label   => 'Network Adapter 1',
-                  :summary => portgroup_name,
+                  :summary => "#{portgroup_name}",
                 },
                 :backing => RbVmomi::VIM.VirtualEthernetCardDistributedVirtualPortBackingInfo(
                   :port  => get_switch_port(portgroup_name, dc),
@@ -382,7 +398,7 @@ The mapping looks something like:
                 :addressType => 'generated'
               ),
             }
-    network
+    return network
   end
 
 end
