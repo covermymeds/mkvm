@@ -22,7 +22,8 @@ end
 # create our options hash.
 # We'll pass this to each class, and exploit the fact that this
 # class will see changes made to this hash in other classes
-options = { :debug => false }
+options = { :debug => false,
+            :configfile => Dir.home + "/.mkvm.yaml" }
 
 # create the objects we'll use
 # and merge their default options
@@ -39,11 +40,6 @@ plugins.each do |p|
   options.merge!(plugin_defaults)
 end
 
-# read config from .mkvm.yaml, if it exists
-if File.exists? Dir.home + "/.mkvm.yaml"
-  options.merge!(YAML.load_file(Dir.home + "/.mkvm.yaml"))
-end
-
 # command line options are defined in each module
 opts = OptionParser.new
 opts.banner = 'Usage: mkvm.rb [options] hostname'
@@ -58,6 +54,9 @@ vsphere.optparse(opts, options)
 plugins.each { |p| Kernel.const_get(p).optparse(opts, options) }
 # and some useful general options
 opts.separator 'General options:'
+opts.on('-c', '--config', "Fully qualified path to the config file you want to use. Default: #{options[:configfile]}") do |x|
+  options[:configfile] = x
+end
 opts.on('-v', '--debug', 'Enable verbose output') do |x|
   options[:debug] = true
 end
@@ -78,6 +77,13 @@ elsif ARGV.count > 1
 end
 
 options[:hostname] = ARGV[0].downcase
+
+# Override config options from file, if it exists.  This isn't super intuitive for a command line
+# user, but the idea is that VM builds are completely automated with everything defined in the config.
+# All of the other required params need to be provided on the command line at the time of automated provisioning.
+if File.exists? options[:configfile]
+  options.merge!(YAML.load_file(options[:configfile]))
+end
 
 # we let plugins run their validation processes first
 # so that they might set values required by the core modules
