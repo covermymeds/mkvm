@@ -165,34 +165,37 @@ The mapping looks something like:
     debug( 'INFO', "Found VMware cluster #{options[:cluster]}" ) if options[:debug]
     vmFolder = dc.vmFolder
     rp = cluster.resourcePool
-    # select the datastore with the most available space
-    datastore = dc.datastore.find_all { |x| x.name =~ /#{options[:ds_regex]}/ }.max_by{ |i| i.info.freeSpace }.name
-    debug( 'INFO', "Selected datastore #{datastore}" ) if options[:debug]
 
     if options[:clone]
       # Clone from Template VM
       source_vm = dc.find_vm("#{options[:source_vm]}") or abort "Failed to find source vm: #{options[:source_vm]}"
-      sdb_size = options[:sdb] ? options[:sdb] : false
-      source_vm.datastore.each { |ds|
-        datastore = ds.name if ds.name =~ /VMstore/
-      }
-      clone_spec = generate_clone_spec(source_vm.config, dc, rp, options[:cpu], options[:mem], datastore, options[:network][options[:subnet]]['name'], cluster, sdb_size)
-      clone_spec.customization = ip_settings(options)
 
+      # If we need a second disk put it on the same datastore as the source VM
+      datastore = ''
+      sdb_size = false
+      if options[:sdb]
+        sdb_size = options[:sdb] 
+        source_vm.datastore.each { |ds|
+          datastore = ds.name if ds.name =~ /VMstore/
+        }
+      end
+
+      # Generate the clone spec
+      clone_spec = generate_clone_spec(source_vm.config, dc, rp, options[:cpu], options[:mem], datastore, options[:network][options[:subnet]]['name'], cluster, sdb_size)
+      clone_spec.customization = ip_settings(options[:ip], options[:gateway], options[:netmask], options[:domain], options[:dns], options[:hostname])
       debug( 'INFO', "Cloning #{options[:source_vm]} to new VM: #{options[:hostname]}" ) if options[:debug]
       source_vm.CloneVM_Task(:folder => source_vm.parent, :name => options[:hostname], :spec => clone_spec).wait_for_completion
 
-      # Setup anti-affinity rules if needed
-      vc_affinity(dc, cluster, options[:hostname], options[:domain])
     else
 
-      # we only execute if the options make sense
+      # Only execute if the options make sense
       if not options[:upload_iso] or not options[:make_vm]
         exit
       end
 
       # Build a VM from scratch
       time = Time.new
+      controllerkey = 100
       annotation = "Created by " + options[:username] + " on " + time.strftime("%Y-%m-%d at %H:%M %p")
       datastore = dc.datastore.find_all { |x| x.name =~ /#{options[:ds_regex]}/ }.max_by{ |i| i.info.freeSpace }.name
       vm_cfg = {
@@ -205,14 +208,12 @@ The mapping looks something like:
         :numCPUs      => options[:cpu],
         :memoryMB     => options[:mem],
         :deviceChange => [ paravirtual_scsi_controller,
-                           disk_config(datastore, options[:sda], 0),
+                           disk_config(datastore, controllerkey, options[:sda], 0),
                            cdrom_config(options[:iso_store], options[:hostname]),
                            network_config(options[:network][options[:subnet]]['name'], dc),
                          ],
       }
-      if options[:sdb]
-        vm_cfg[:deviceChange].push disk_config(datastore, options[:sdb], 1)
-      end
+      vm_cfg[:deviceChange].push disk_config(datastore, controllerkey, options[:sdb], 1) if options[:sdb]
 
       # stop here if --no-vm
       if not options[:make_vm]
@@ -225,43 +226,35 @@ The mapping looks something like:
         require 'pp'
         PP.pp(vm_cfg)
       end
-      _vm = vmFolder.CreateVM_Task( :config => vm_cfg, :pool => rp).wait_for_completion
+      vm = vmFolder.CreateVM_Task( :config => vm_cfg, :pool => rp).wait_for_completion
 
       # upload the ISO as needed
       if options[:upload_iso]
-        # get the ISO datastore
-        isostore = dc.find_datastore(options[:iso_store])
         debug( 'INFO', "Uploading #{options[:hostname]}.iso to #{options[:iso_store]}" )  if options[:debug]
-        isostore.upload "/#{options[:hostname]}.iso", "#{options[:outdir]}/#{options[:hostname]}.iso"
-        # get the VMs CDROM config
-        cdrom = _vm.config.hardware.device.detect { |x| x.deviceInfo.label == "CD/DVD drive 1" }
-        # attach our ISO
-        cdrom.deviceInfo = {
-          :label   => 'CD/DVD drive 1',
-          :summary => "ISO [#{options[:iso_store]}] #{options[:hostname]}.iso",
-        }
-        # update the config
-        _vm.ReconfigVM_Task( :spec => RbVmomi::VIM::VirtualMachineConfigSpec(deviceChange: [{:operation=>:edit, :device=> cdrom }] ))
+        upload_iso(dc, vm, options[:hostname], options[:iso_store], options[:outdir])
       end
 
       # Power on the VM and reconfigure the cdrom
       if options[:power_on]
-        _vm.PowerOnVM_Task.wait_for_completion
+        vm.PowerOnVM_Task.wait_for_completion
         # sleep 10 seconds, to allow the VM to be built and booted
         sleep(10)
         # get the VMs CDROM config
-        cdrom = _vm.config.hardware.device.detect { |x| x.deviceInfo.label == "CD/DVD drive 1" }
+        cdrom = vm.config.hardware.device.detect { |x| x.deviceInfo.label == "CD/DVD drive 1" }
         # reconfigure CDROM to not attach at boot
         cdrom.connectable.startConnected = false
-        _vm.ReconfigVM_Task( :spec => RbVmomi::VIM::VirtualMachineConfigSpec(deviceChange: [{:operation=>:edit, :device=> cdrom }] ))
+        vm.ReconfigVM_Task( :spec => RbVmomi::VIM::VirtualMachineConfigSpec(deviceChange: [{:operation=>:edit, :device=> cdrom }] ))
         # answer VMware's question, if necessary
-        if _vm.runtime.question then
-          qID = _vm.runtime.question.id
-          _vm.AnswerVM( questionId: qID, answerChoice: 0 )
+        if vm.runtime.question then
+          qID = vm.runtime.question.id
+          vm.AnswerVM( questionId: qID, answerChoice: 0 )
         end
       end
   
     end
+
+    # Setup anti-affinity rules if needed
+    vc_affinity(dc, cluster, options[:hostname], options[:domain])
 
   end
 
@@ -273,17 +266,17 @@ The mapping looks something like:
   end
 
     # Populate the customization_spec with the new host details
-  def ip_settings(settings)
+  def ip_settings(ip, gateway, netmask, domain, dns, hostname)
 
-    ip_settings = RbVmomi::VIM::CustomizationIPSettings.new(:ip => RbVmomi::VIM::CustomizationFixedIp(:ipAddress => settings[:ip]), :gateway => [settings[:gateway]], :subnetMask => settings[:netmask])
-    ip_settings.dnsDomain = settings[:domain]
+    ip_settings = RbVmomi::VIM::CustomizationIPSettings.new(:ip => RbVmomi::VIM::CustomizationFixedIp(:ipAddress => ip), :gateway => [gateway], :subnetMask => netmask)
+    ip_settings.dnsDomain = domain
 
     global_ip_settings = RbVmomi::VIM.CustomizationGlobalIPSettings
-    global_ip_settings.dnsServerList = settings[:dns].split(',')
-    global_ip_settings.dnsSuffixList = [settings[:domain]]
+    global_ip_settings.dnsServerList = dns.split(',')
+    global_ip_settings.dnsSuffixList = [domain]
 
-    hostname = RbVmomi::VIM::CustomizationFixedName.new(:name => settings[:hostname].split('.')[0])
-    linux_prep = RbVmomi::VIM::CustomizationLinuxPrep.new( :domain => settings[:domain], :hostName => hostname)
+    hostname = RbVmomi::VIM::CustomizationFixedName.new(:name => hostname.split('.')[0])
+    linux_prep = RbVmomi::VIM::CustomizationLinuxPrep.new( :domain => domain, :hostName => hostname)
     adapter_mapping = [RbVmomi::VIM::CustomizationAdapterMapping.new("adapter" => ip_settings)]
 
     spec = RbVmomi::VIM::CustomizationSpec.new( :identity => linux_prep,
@@ -296,7 +289,7 @@ The mapping looks something like:
    # Populate the VM clone specification
   def generate_clone_spec(source_config, dc, resource_pool, cpus, memory, datastore, network, cluster, sdb_size)
 
-    clone_spec = RbVmomi::VIM.VirtualMachineCloneSpec(:location => RbVmomi::VIM.VirtualMachineRelocateSpec(:pool => resource_pool), :template => false, :powerOn => false)
+    clone_spec = RbVmomi::VIM.VirtualMachineCloneSpec(:location => RbVmomi::VIM.VirtualMachineRelocateSpec(:pool => resource_pool), :template => false, :powerOn => true)
     clone_spec.config = RbVmomi::VIM.VirtualMachineConfigSpec(:deviceChange => Array.new, :extraConfig => nil)
 
     card = source_config.hardware.device.find { |d| d.deviceInfo.label == "Network adapter 1" }
@@ -314,7 +307,6 @@ The mapping looks something like:
           controllerkey = device.key
         end
       }
-      puts controllerkey
       disk_spec = disk_config(datastore, controllerkey, sdb_size, 1)
       clone_spec.config.deviceChange.push disk_spec
     end
@@ -343,7 +335,7 @@ The mapping looks something like:
     return device
   end
 
-  def disk_config(datastore, controllerkey = 100, size, index)
+  def disk_config(datastore, controllerkey, size, index)
     disk = {
             :operation     => :add,
             :fileOperation => :create,
@@ -359,7 +351,6 @@ The mapping looks something like:
               :capacityInKB  => size,
             )
           }
-    puts disk
     return disk
   end
 
@@ -399,6 +390,20 @@ The mapping looks something like:
               ),
             }
     return network
+  end
+
+  def upload_iso(dc, vm, hostname, iso_store, outdir)
+    isostore = dc.find_datastore(iso_store)
+    isostore.upload "/#{hostname}.iso", "#{outdir}/#{hostname}.iso"
+    # get the VMs CDROM config
+    cdrom = vm.config.hardware.device.detect { |x| x.deviceInfo.label == "CD/DVD drive 1" }
+    # attach our ISO
+    cdrom.deviceInfo = {
+      :label   => 'CD/DVD drive 1',
+      :summary => "ISO [#{iso_store}] #{hostname}.iso",
+    }
+    # update the VM config
+    vm.ReconfigVM_Task( :spec => RbVmomi::VIM::VirtualMachineConfigSpec(deviceChange: [{:operation=>:edit, :device=> cdrom }] ))
   end
 
 end
