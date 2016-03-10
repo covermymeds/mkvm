@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
   spec.email         = ["smerrill@covermymeds.com", "dsajner@covermymeds.com", "dmorris@covermymeds.com"]
   spec.summary       = %q{Interact with VMWare to build or remove VMs}
   spec.description   = %q{Wraps rbvmomi to interact with the VMWare API to build or remove VMs.}
-  spec.homepage      = "http://www.covermymeds.com"
+  spec.homepage      = "https://github.com/covermymeds/mkvm"
   spec.license       = "MIT"
 
   spec.files         = Dir.glob("{lib,plugins,isolinux}/**/*") + %w(README.md mkvm.rb rmvm.rb)
