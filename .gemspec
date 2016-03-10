@@ -14,6 +14,7 @@ Gem::Specification.new do |spec|
   spec.license       = "MIT"
 
   spec.files         = Dir.glob("{lib,plugins,isolinux}/**/*") + %w(README.md mkvm.rb rmvm.rb)
+  spec.bindir        = '.'
   spec.executables   = ["mkvm.rb", "rmvm.rb"]
   spec.require_paths = ["lib", "plugins", "isolinux", "iso"]
 
