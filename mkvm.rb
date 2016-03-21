@@ -92,11 +92,12 @@ plugins.each { |p| Kernel.const_get(p).post_validate(options) }
 
 # for each of our main tasks, we allow plugins to execute
 # both before and after, to afford the most flexibility
-plugins.each { |p| Kernel.const_get(p).pre_iso(options) }
-iso.execute(options)
-plugins.each { |p| Kernel.const_get(p).post_iso(options) }
+if ! options[:clone]
+  plugins.each { |p| Kernel.const_get(p).pre_iso(options) }
+  iso.execute(options)
+  plugins.each { |p| Kernel.const_get(p).post_iso(options) }
+end
 
 plugins.each { |p| Kernel.const_get(p).pre_vm(options) }
 vsphere.execute(options)
 plugins.each { |p| Kernel.const_get(p).post_vm(options) }
-
