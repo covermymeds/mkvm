@@ -59,6 +59,9 @@ vsphere.optparse(opts, options)
 plugins.each { |p| Kernel.const_get(p).optparse(opts, options) }
 # and some useful general options
 opts.separator 'General options:'
+opts.on( '--extra "ONE=1 TWO=2"', 'extra args to pass to boot line or to extraConfigs in the case of VM clone') do |x|
+  options[:extra] = x
+end
 opts.on('-v', '--debug', 'Enable verbose output') do |x|
   options[:debug] = true
 end
