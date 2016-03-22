@@ -15,7 +15,7 @@ Gem::Specification.new do |spec|
 
   spec.files         = Dir.glob("{lib,plugins,isolinux}/**/*") + %w(README.md mkvm.rb rmvm.rb)
   spec.bindir        = '.'
-  spec.executables   = ["mkvm.rb", "rmvm.rb"]
+  spec.executables   = ["mkvm.rb", "rmvm.rb", "rename.rb"]
   spec.require_paths = ["lib", "plugins", "isolinux", "iso"]
 
   spec.add_dependency 'rbvmomi', '>= 1.8.2'
