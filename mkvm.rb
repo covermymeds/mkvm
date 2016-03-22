@@ -8,9 +8,9 @@ require 'resolv'
 require 'socket'
 require 'yaml'
 require_relative 'lib/mkvm'
-require_relative 'lib/Vm_drs'
+require_relative 'lib/vm_drs'
 
-libs = %w[ISO Kickstart Vsphere Plugin]
+libs = %w[iso kickstart vsphere plugin]
 libs.each { |lib| require_relative "lib/#{lib}" }
 
 plugins = []
