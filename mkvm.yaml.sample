@@ -15,6 +15,13 @@
 :upload_iso: true
 :make_vm: true
 :power_on: true
+:sat_url: https://satellite.example.com/rpc/api
+:sat_username: Admin
+:puppetmaster_url: https://puppetmaster.example.com
+:puppetdb_url: https://puppetdb.example.com
+:puppet_env: Production
+:puppet_cert: /path/to/cert.pem
+:puppet_key: /path/to/key.pem
 :add_uri: https://ipam.dev/api/getFreeIP.php?subnet=SUBNET&apiapp=APIAPP&apitoken=APITOKEN&host=HOSTNAME&user=USER
 :del_uri: https://ipam.dev/api/removeHost.php?host=HOSTNAME&apiapp=APIAPP&apitoken=APITOKEN
 :apiapp: ipamip
@@ -24,7 +31,7 @@
   'dc2': 'dvswitch2uuid'
 :network':
   '192.168.20.0':
-    name: 'Prodcution'
+    name: 'Production'
     portgroup: 'dvportgroup1-number'
   '192.168.30.0':
     name: 'DMZ'
