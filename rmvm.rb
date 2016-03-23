@@ -16,7 +16,6 @@ require "rbvmomi"
 require "rubygems"
 require "yaml"
 require "json"
-require "pry"
 
 # establish a couple of sane default values
 options = {
