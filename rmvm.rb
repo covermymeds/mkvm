@@ -245,30 +245,41 @@ elsif pwrs == "poweredOff"
   if options[:puppet]
     puts "Removing #{options[:hostname]} from Puppet...."
 
-    # Defaults to build URLs
-    puppetmaster_default_port = 8140
-    puppetmaster_default_path = "/puppet-ca/v1/certificate_status/#{options[:hostname]}"
-    puppetdb_default_port = 8081
-    puppetdb_default_path = "/pdb/cmd/v1"
+    puppet_defaults = {
+      "master"  => {
+        "port"  => 8140,
+        "path"  => "/puppet-ca/v1/certificate_status/#{options[:hostname]}",
+      },
+      "db"      => {
+        "port"  => 8081,
+        "path"  => "/pdb/cmd/v1",
+      },
+    }
 
     # If a puppetdb_url wasn't given, just use the puppetmaster_url since most installations are one-node
-    options[:puppetdb_url] = options[:puppetdb_url] ? options[:puppetdb_url] : options[:puppetmaster_url]
+    options[:puppetdb_url] ||= options[:puppetmaster_url]
 
     # Generate URI object for puppet URLs
-    puppetmaster_url = URI.parse(URI.escape(options[:puppetmaster_url]))
-    puppetdb_url = URI.parse(URI.escape(options[:puppetdb_url]))
+    puppet_urls = {
+      "master"  => URI.parse(URI.escape(options[:puppetmaster_url])),
+      "db"      => URI.parse(URI.escape(options[:puppetdb_url])),
+    }
 
-    # TODO: Clean this up
-    # Set default port if none were provided
-    puppetmaster_url.port = [80, 443].include?(puppetmaster_url.port) ? puppetmaster_default_port : puppetmaster_url.port
-    puppetdb_url.port = [80, 443].include?(puppetdb_url.port) ? puppetdb_default_port : puppetdb_url.port
+    # Iterate over URLs to set default ports & paths if necessary
+    puppet_urls.each do |type, url|
+      # Check the puppet URL strings to see if ports were provided.
+      # If no ports were provided, set the default ports
+      # Checking url.port is not reliable. A default of 80 or 443 is set if not specified
+      if not url.to_s.match(":\d+")
+        url.port = puppet_defaults[type]["port"]
+      end
 
-    # Set default path if none were provided
-    puppetmaster_url.path = puppetmaster_url.path.empty? ? puppetmaster_default_path : puppetmaster_url.path
-    puppetdb_url.path = puppetdb_url.path.empty? ? puppetdb_default_path : puppetdb_url.path
+      # Set default path if not provided
+      url.path = url.path.empty? ? puppet_defaults[type]["path"] : url.path
+    end
 
     # Set our environment in the puppetmaster url query
-    puppetmaster_url.query = "environment=#{options[:puppet_env]}"
+    puppet_urls["master"].query = "environment=#{options[:puppet_env]}"
 
     # Load Certificate & key objects
     if options[:puppet_cert]
@@ -282,7 +293,7 @@ elsif pwrs == "poweredOff"
     # PUPPETDB DEACTIVATE REQUEST
     #
     # Setup http object
-    http = Net::HTTP.new(puppetdb_url.host, puppetdb_url.port)
+    http = Net::HTTP.new(puppet_urls["db"].host, puppet_urls["db"].port)
     http.use_ssl = true
     http.ssl_version = :TLSv1
     http.cert = options[:puppet_cert]
@@ -293,7 +304,7 @@ elsif pwrs == "poweredOff"
     http.verify_mode = OpenSSL::SSL::VERIFY_NONE
 
     # Build HTTP PUT request
-    request = Net::HTTP::Post.new(puppetdb_url.path, initheader = {
+    request = Net::HTTP::Post.new(puppet_urls["db"].path, initheader = {
       "Content-Type" => "application/json",
       "Accept" => "application/json"
     })
@@ -315,7 +326,7 @@ elsif pwrs == "poweredOff"
     #
     # TODO: possible to reuse previous Net::HTTP object?
     # Setup http object
-    http = Net::HTTP.new(puppetmaster_url.host, puppetmaster_url.port)
+    http = Net::HTTP.new(puppet_urls["master"].host, puppet_urls["master"].port)
     http.use_ssl = true
     http.ssl_version = :TLSv1
     http.cert = options[:puppet_cert]
@@ -329,12 +340,12 @@ elsif pwrs == "poweredOff"
     requests = []
 
     # PUT Request to revoke the cert
-    revoke_request = Net::HTTP::Put.new(puppetmaster_url.path, initheader = {"Content-Type" => "text/pson"})
+    revoke_request = Net::HTTP::Put.new(puppet_urls["master"].path, initheader = {"Content-Type" => "text/pson"})
     revoke_request.body = {"desired_state" => "revoked"}.to_json
     requests << revoke_request
 
     # DELETE request to delete the cert
-    delete_request = Net::HTTP::Delete.new(puppetmaster_url.path, initheader = {"Accept" => "pson"})
+    delete_request = Net::HTTP::Delete.new(puppet_urls["master"].path, initheader = {"Accept" => "pson"})
     requests << delete_request
 
     http.start do |http|
