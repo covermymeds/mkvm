@@ -185,34 +185,5 @@ Create an ISO for a medium RHEL 7 system named foobar and pass a couple of extra
 $ ./mkvm.rb -t medium -r 7 --extra "console=ttyS0 ks.sendmac noverifyssl sshd" foobar
 ```
 
-## Removing servers from Puppet with rmvm.rb
-To remove a server from Puppet, you will need a certificate/key pair that is signed by your Puppet CA and allowed access to the ```certificate status``` end point. Access to the ```certificate status``` end point is configured in your Puppet server's auth.conf:
-```
-authorization: {
-    ...
-    rules: [
-        ...
-        {
-            "allow" : [
-                "pe-internal-dashboard"
-            ],
-						"match-request" : {
-                "method" : [
-                    "get",
-                    "put",
-                    "delete"
-                ],
-                "path" : "/puppet-ca/v1/certificate_status",
-                "query-params" : {},
-                "type" : "path"
-            },
-            "name" : "puppetlabs certificate status",
-            "sort-order" : 500
-        }
-    ...
-```
-
-In the above example, only the ```pe-internal-dashboard``` cert is allowed to access the ```certificate status``` end-point. This is the default configuration for a Puppet Enterprise installation. You can either get the certificate/key files for pe-internal-dashboard or generate a new certificate/key pair, sign it with the Puppet CA, and add it to the "allow" list in auth.conf.
-
 ## License
 mkvm.rb is copyright 2014, CoverMyMeds, LLC and is released under the terms of the [GNU General Public License, version 2](http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt).
