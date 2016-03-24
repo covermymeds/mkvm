@@ -14,7 +14,8 @@ libs = %w[iso kickstart vsphere plugin]
 libs.each { |lib| require_relative "lib/#{lib}" }
 
 plugins = []
-Dir['plugins/*.rb'].each do |plugin|
+dir = File.dirname(__FILE__) + '/plugins/*.rb'
+Dir[dir].each do |plugin|
   plugins << File.basename(plugin, '.rb').capitalize
   require_relative plugin
 end

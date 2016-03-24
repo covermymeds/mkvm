@@ -2,8 +2,8 @@ class ISO < Mkvm
 
   def defaults
     return { 
-      :srcdir => './isolinux',
-      :outdir => './iso',
+      :srcdir => File.dirname(__FILE__) + '/../isolinux',
+      :outdir => ENV['PWD'] + '/iso',
       :make_iso => true,
     }
   end
@@ -30,9 +30,10 @@ class ISO < Mkvm
     # grab the dirname of the isolinux path
     srcdir = File.realdirpath("#{options[:srcdir]}/#{options[:major]}/")
     outdir = File.realdirpath(options[:outdir])
+    FileUtils.mkdir_p outdir
 
     isoname = "#{hostname}.iso"
-    work_dir = File.realdirpath("#{options[:dir]}/tmp")
+    work_dir = File.realdirpath(ENV['PWD'] + "/mkvm")
     tmp_dir = "#{work_dir}/#{hostname}"
 
     # TODO: handle exceptions
