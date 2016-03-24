@@ -33,7 +33,7 @@ class ISO < Mkvm
     FileUtils.mkdir_p outdir
 
     isoname = "#{hostname}.iso"
-    work_dir = File.realdirpath("/tmp/mkvm")
+    work_dir = File.realdirpath(ENV['PWD'] + "/mkvm")
     tmp_dir = "#{work_dir}/#{hostname}"
 
     # TODO: handle exceptions
