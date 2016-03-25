@@ -21,6 +21,7 @@ require "json"
 options = {
   :username   => ENV["USER"],
   :insecure   => true,
+  :vmware     => true,
   :satellite  => true,
   :puppet     => true,
   :puppet_env => "Production",
@@ -52,6 +53,9 @@ optparse = OptionParser.new do|opts|
   opts.banner = "Usage: #{_self} [options] hostname"
   opts.separator ""
   opts.separator "VSphere options:"
+  opts.on( "--no-vmware", "Do not remove from VMware") do |x|
+    options[:vmware] = false
+  end
   opts.on( "-u", "--user USER", "vSphere user name (#{options[:username]})") do |x|
     options[:username] = x
   end
@@ -165,206 +169,211 @@ if not options[:password]
   puts ""
 end
 
-VIM = RbVmomi::VIM
-# TODO: handle exceptions here
-vim = VIM.connect( { :user => options[:username], :password => options[:password], :host => options[:host], :insecure => options[:insecure] } ) or abort $!
-dc = vim.serviceInstance.find_datacenter(options[:dc]) or abort "vSphere data center #{options[:dc]} not found"
-
-debug( "INFO", "Connected to datacenter #{options[:dc]}" )
-
-vm = dc.find_vm(options[:hostname]) or abort "Unable to locate #{options[:hostname]} in data center #{options[:dc]}"
-pwrs = vm.runtime.powerState
-
-# If the vm is powered on, power off and send email
-# If the vm is powered off, deletd the vm and remove from IPAM
-if pwrs == "poweredOn"
-  puts "Powering off #{options[:hostname]}"
-  vm.PowerOffVM_Task.wait_for_completion
-
-  msg_body = <<END_MSG
-From: #{options[:mail_from]}
-To: #{options[:mail_to]}
-Subject: Powered off #{options[:hostname]} for deletion from VMware
-
-#{options[:hostname]} has been powered off for VMware removal, please run the rmvm.rb script again to destroy vm.
-
-
-END_MSG
-
-  # only send email if we have an SMTP server, a from address, and a to address
-  if options[:mail_server] and options[:mail_from] and options[:mail_to]
-    Net::SMTP.start(options[:mail_server], 25) do |smtp|
-      smtp.send_message msg_body, options[:mail_from], options[:mail_to]
+if options[:vmware]
+  VIM = RbVmomi::VIM
+  vim = VIM.connect( { :user => options[:username], :password => options[:password], :host => options[:host], :insecure => options[:insecure] } ) or abort $!
+  dc = vim.serviceInstance.find_datacenter(options[:dc]) or abort "vSphere data center #{options[:dc]} not found"
+  
+  debug( "INFO", "Connected to datacenter #{options[:dc]}" )
+  
+  vm = dc.find_vm(options[:hostname]) or abort "Unable to locate #{options[:hostname]} in data center #{options[:dc]}"
+  pwrs = vm.runtime.powerState
+  
+  if pwrs == "poweredOn"
+    puts "Powering off #{options[:hostname]}"
+    begin
+      vm.PowerOffVM_Task.wait_for_completion
+    rescue Exception => msg
+      abort "Failed to poweroff #{options[:hostname]}: #{msg}"
     end
   end
-
-elsif pwrs == "poweredOff"
+  
   puts "Destroying #{options[:hostname]}"
-  vm.Destroy_Task.wait_for_completion
-  puts "#{options[:hostname]} has been destroyed/removed from VMware."
+  begin
+    vm.Destroy_Task.wait_for_completion
+    puts "#{options[:hostname]} has been destroyed/removed from VMware."
+  rescue Exception => msg
+    abort "Failed to destroy #{options[:hostname]} from VMware: #{msg}."
+  end
+end
 
-  if options[:satellite]
-    puts "Removing #{options[:hostname]} from Satellite...."
+if options[:satellite]
+  puts "Removing #{options[:hostname]} from Satellite...."
 
-    # If we weren't given different satellite credentials, use vSphere credentials
-    options[:sat_username] = options[:sat_username] ? options[:sat_username] : options[:username]
-    options[:sat_password] = options[:sat_password] ? options[:sat_password] : options[:password]
+  # If we weren't given different satellite credentials, use vSphere credentials
+  options[:sat_username] = options[:sat_username] ? options[:sat_username] : options[:username]
+  options[:sat_password] = options[:sat_password] ? options[:sat_password] : options[:password]
 
+  begin
     client = XMLRPC::Client.new2(options[:sat_url])
 
     # Disable certificate verification
-    # TODO: Support for secure connections?
+    #   # TODO: Support for secure connections?
     client.instance_variable_get("@http").verify_mode = OpenSSL::SSL::VERIFY_NONE
 
-    # Check to see if we have valid user credentials for Satellite
-    begin
-      key = client.call("auth.login", options[:sat_username], options[:sat_password])
-    rescue XMLRPC::FaultException
-      abort "Unable to authenticate to Satellite. Manual deletion required."
-    end
-
+    # Auth
+    key = client.call("auth.login", options[:sat_username], options[:sat_password])
+    
     # Search Satellite for our system's hostname
     response = client.call("system.search.hostname", key, options[:hostname])
 
     # Ensure that exactly one response was returned form Satellite
     system = response.pop
     if not system or response.any?
-      abort "Unable to match '#{options[:hostname]}' in Satellite. Manual deletion required."
-    end
-
-    # Delete the system from Satellite
-    begin
+      puts "Unable to match '#{options[:hostname]}' in Satellite. Manual deletion required."
+    else
       client.call("system.deleteSystem", key, system["id"])
       puts "Server '#{options[:hostname]}' deleted from Satellite."
-    rescue XMLRPC::FaultException
-      abort "Unable to delete server '#{options[:hostname]}' from Satellite. Manual deletion required."
-      # TODO: print the Satellite error
     end
+  rescue Exception => msg
+    puts "Error deleting system from Satellite: #{msg}"
+  end
+end
+
+if options[:puppet]
+  puts "Removing #{options[:hostname]} from Puppet...."
+
+  # Defaults to build URLs
+  puppetmaster_default_port = 8140
+  puppetmaster_default_path = "/puppet-ca/v1/certificate_status/#{options[:hostname]}"
+  puppetdb_default_port = 8081
+  puppetdb_default_path = "/pdb/cmd/v1"
+
+  # If a puppetdb_url wasn't given, just use the puppetmaster_url since most installations are one-node
+  options[:puppetdb_url] = options[:puppetdb_url] ? options[:puppetdb_url] : options[:puppetmaster_url]
+
+  # Generate URI object for puppet URLs
+  puppetmaster_url = URI.parse(URI.escape(options[:puppetmaster_url]))
+  puppetdb_url = URI.parse(URI.escape(options[:puppetdb_url]))
+
+  # TODO: Clean this up
+  # Set default port if none were provided
+  puppetmaster_url.port = [80, 443].include?(puppetmaster_url.port) ? puppetmaster_default_port : puppetmaster_url.port
+  puppetdb_url.port = [80, 443].include?(puppetdb_url.port) ? puppetdb_default_port : puppetdb_url.port
+
+  # Set default path if none were provided
+  puppetmaster_url.path = puppetmaster_url.path.empty? ? puppetmaster_default_path : puppetmaster_url.path
+  puppetdb_url.path = puppetdb_url.path.empty? ? puppetdb_default_path : puppetdb_url.path
+
+  # Set our environment in the puppetmaster url query
+  puppetmaster_url.query = "environment=#{options[:puppet_env]}"
+
+  # Load Certificate & key objects
+  if options[:puppet_cert]
+    options[:puppet_cert] = OpenSSL::X509::Certificate.new File.read options[:puppet_cert]
+  end
+  if options[:puppet_key]
+    options[:puppet_key] = OpenSSL::PKey::RSA.new File.read options[:puppet_key]
   end
 
-  if options[:puppet]
-    puts "Removing #{options[:hostname]} from Puppet...."
+  #
+  # PUPPETDB DEACTIVATE REQUEST
+  #
+  # Setup http object
+  http = Net::HTTP.new(puppetdb_url.host, puppetdb_url.port)
+  http.use_ssl = true
+  http.ssl_version = :TLSv1
+  http.cert = options[:puppet_cert]
+  http.key = options[:puppet_key]
 
-    # Defaults to build URLs
-    puppetmaster_default_port = 8140
-    puppetmaster_default_path = "/puppet-ca/v1/certificate_status/#{options[:hostname]}"
-    puppetdb_default_port = 8081
-    puppetdb_default_path = "/pdb/cmd/v1"
+  # Disable cerificate verification
+  # TODO: Support for secure connections?
+  http.verify_mode = OpenSSL::SSL::VERIFY_NONE
 
-    # If a puppetdb_url wasn't given, just use the puppetmaster_url since most installations are one-node
-    options[:puppetdb_url] = options[:puppetdb_url] ? options[:puppetdb_url] : options[:puppetmaster_url]
+  # Build HTTP PUT request
+  request = Net::HTTP::Post.new(puppetdb_url.path, initheader = {
+    "Content-Type" => "application/json",
+    "Accept" => "application/json"
+  })
+  request.body = {
+    "command" => "deactivate node",
+    "version" => 3,
+    "payload" => {"certname" => options[:hostname]},
+  }.to_json
 
-    # Generate URI object for puppet URLs
-    puppetmaster_url = URI.parse(URI.escape(options[:puppetmaster_url]))
-    puppetdb_url = URI.parse(URI.escape(options[:puppetdb_url]))
-
-    # TODO: Clean this up
-    # Set default port if none were provided
-    puppetmaster_url.port = [80, 443].include?(puppetmaster_url.port) ? puppetmaster_default_port : puppetmaster_url.port
-    puppetdb_url.port = [80, 443].include?(puppetdb_url.port) ? puppetdb_default_port : puppetdb_url.port
-
-    # Set default path if none were provided
-    puppetmaster_url.path = puppetmaster_url.path.empty? ? puppetmaster_default_path : puppetmaster_url.path
-    puppetdb_url.path = puppetdb_url.path.empty? ? puppetdb_default_path : puppetdb_url.path
-
-    # Set our environment in the puppetmaster url query
-    puppetmaster_url.query = "environment=#{options[:puppet_env]}"
-
-    # Load Certificate & key objects
-    if options[:puppet_cert]
-      options[:puppet_cert] = OpenSSL::X509::Certificate.new File.read options[:puppet_cert]
-    end
-    if options[:puppet_key]
-      options[:puppet_key] = OpenSSL::PKey::RSA.new File.read options[:puppet_key]
-    end
-
-    #
-    # PUPPETDB DEACTIVATE REQUEST
-    #
-    # Setup http object
-    http = Net::HTTP.new(puppetdb_url.host, puppetdb_url.port)
-    http.use_ssl = true
-    http.ssl_version = :TLSv1
-    http.cert = options[:puppet_cert]
-    http.key = options[:puppet_key]
-
-    # Disable cerificate verification
-    # TODO: Support for secure connections?
-    http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-
-    # Build HTTP PUT request
-    request = Net::HTTP::Post.new(puppetdb_url.path, initheader = {
-      "Content-Type" => "application/json",
-      "Accept" => "application/json"
-    })
-    request.body = {
-      "command" => "deactivate node",
-      "version" => 3,
-      "payload" => {"certname" => options[:hostname]},
-    }.to_json
-
-    # Send request to API
-    response = http.start {|http| http.request(request)}
-    if not response.code.start_with? "2"
-      abort "There was an error with your PuppetDB request: #{response.code}"
-    end
+  # Send request to API
+  response = http.start {|http_request| http_request.request(request)}
+  if not response.code.start_with? "2"
+    puts "There was an error with your PuppetDB request: #{response.code}"
+  else
     puts "Server '#{options[:hostname]}' deactivated in PuppetDB. Request uuid: '#{JSON.parse(response.body)["uuid"]}'"
+  end
 
-    #
-    # PUPPET CERT REVOKE/DELETE REQUESTS
-    #
-    # TODO: possible to reuse previous Net::HTTP object?
-    # Setup http object
-    http = Net::HTTP.new(puppetmaster_url.host, puppetmaster_url.port)
-    http.use_ssl = true
-    http.ssl_version = :TLSv1
-    http.cert = options[:puppet_cert]
-    http.key = options[:puppet_key]
+  #
+  # PUPPET CERT REVOKE/DELETE REQUESTS
+  #
+  # TODO: possible to reuse previous Net::HTTP object?
+  # Setup http object
+  http = Net::HTTP.new(puppetmaster_url.host, puppetmaster_url.port)
+  http.use_ssl = true
+  http.ssl_version = :TLSv1
+  http.cert = options[:puppet_cert]
+  http.key = options[:puppet_key]
 
-    # Disable cerificate verification
-    # TODO: Support for secure connections?
-    http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+  # Disable cerificate verification
+  # TODO: Support for secure connections?
+  http.verify_mode = OpenSSL::SSL::VERIFY_NONE
 
-    # Build HTTP PUT & DELETE requests
-    requests = []
+  # Build HTTP PUT & DELETE requests
+  requests = []
 
-    # PUT Request to revoke the cert
-    revoke_request = Net::HTTP::Put.new(puppetmaster_url.path, initheader = {"Content-Type" => "text/pson"})
-    revoke_request.body = {"desired_state" => "revoked"}.to_json
-    requests << revoke_request
+  # PUT Request to revoke the cert
+  revoke_request = Net::HTTP::Put.new(puppetmaster_url.path, initheader = {"Content-Type" => "text/pson"})
+  revoke_request.body = {"desired_state" => "revoked"}.to_json
+  requests << revoke_request
 
-    # DELETE request to delete the cert
-    delete_request = Net::HTTP::Delete.new(puppetmaster_url.path, initheader = {"Accept" => "pson"})
-    requests << delete_request
+  # DELETE request to delete the cert
+  delete_request = Net::HTTP::Delete.new(puppetmaster_url.path, initheader = {"Accept" => "pson"})
+  requests << delete_request
 
-    http.start do |http|
-      requests.each do |request|
-        response = http.request request
+  success = true
+  http.start do |http_request|
+    requests.each do |r|
+      response = http_request.request r
 
-        if not response.code.start_with? "2"
-          abort "There was an error with your Puppet API request: #{response.code}"
-        end
+      if not response.code.start_with? "2"
+        puts "There was an error with your Puppet API request: #{response.code}"
+        success = false
       end
     end
-
-    puts "Puppet certificates for server '#{options[:hostname]}' revoked & removed"
   end
 
-  if options[:ipam]
-    puts "Removing #{options[:hostname]} from IPAM...."
+  if success
+    puts "Puppet certificates for server '#{options[:hostname]}' revoked & removed"
+  else
+    puts "Some or all of the Puppet removal failed."
+  end
+end
 
-    # Send delete request to phpipam system
-    uri = options[:del_uri].gsub(/APIAPP|APITOKEN|HOSTNAME/, {"APIAPP" => options[:apiapp], "APITOKEN" => options[:apitoken], "HOSTNAME" => options[:hostname],})
-    uri = URI.escape(uri)
-    uri = URI.parse(uri)
-    http = Net::HTTP.new(uri.host, uri.port)
-    http.use_ssl = true
-    request = Net::HTTP::Get.new(uri.request_uri)
-    response = http.request(request)
-    if response.code != "200"
-      abort "There was an error with your IPAM request: #{response.code}"
-    end
+if options[:ipam]
+  puts "Removing #{options[:hostname]} from IPAM...."
+
+  # Send delete request to phpipam system
+  uri = options[:del_uri].gsub(/APIAPP|APITOKEN|HOSTNAME/, {"APIAPP" => options[:apiapp], "APITOKEN" => options[:apitoken], "HOSTNAME" => options[:hostname],})
+  uri = URI.escape(uri)
+  uri = URI.parse(uri)
+  http = Net::HTTP.new(uri.host, uri.port)
+  http.use_ssl = true
+  request = Net::HTTP::Get.new(uri.request_uri)
+  response = http.request(request)
+  if response.code != "200"
+    puts "There was an error with your IPAM request: #{response.code}"
+  else
     del_response = response.body
     puts "#{del_response}"
+  end
+end
+
+
+msg_body = <<END_MSG
+From: #{options[:mail_from]}
+To: #{options[:mail_to]}
+Subject: #{options[:hostname]} has been deleted by rmvm.
+END_MSG
+
+# only send email if we have an SMTP server, a from address, and a to address
+if options[:mail_server] and options[:mail_from] and options[:mail_to]
+  Net::SMTP.start(options[:mail_server], 25) do |smtp|
+    smtp.send_message msg_body, options[:mail_from], options[:mail_to]
   end
 end
