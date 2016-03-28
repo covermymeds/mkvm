@@ -216,15 +216,20 @@ if options[:satellite]
     # Search Satellite for our system's hostname
     response = client.call("system.search.hostname", key, options[:hostname])
 
-    # Ensure that exactly one response was returned form Satellite
-    system = response.pop
-    if not system or response.any?
+    # Ensure that results were found from Satellite
+    if response.any?
+      response.each do |system|
+        # system.search.hostname will return non-exact matches. Make sure the system hostname is an exact match
+        if system["hostname"] == options[:hostname]
+          client.call("system.deleteSystem", key, system["id"])
+        end
+      end
+      puts "Server '#{options[:hostname]}' deleted from Satellite."
+    else
       puts "Unable to match '#{options[:hostname]}' in Satellite. Manual deletion required."
       exit_code += 1
-    else
-      client.call("system.deleteSystem", key, system["id"])
-      puts "Server '#{options[:hostname]}' deleted from Satellite."
     end
+
   rescue Exception => msg
     puts "Error deleting system from Satellite: #{msg}"
     exit_code += 1
