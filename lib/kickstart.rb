@@ -36,9 +36,6 @@ class Kickstart < Mkvm
     opts.on( '--app-id APP_ID', 'APP_ID') do |x|
       options[:app_id] = x
     end
-    opts.on( '--extra "ONE=1 TWO=2"', 'extra args to pass to boot line') do |x|
-      options[:extra] = x
-    end
   end
 
   def validate(options)

@@ -55,7 +55,7 @@ class Vsphere < Mkvm
         options[:custom] = x
       end
       opts.on( '--sdb [10G{,/pub}]', 'Add /dev/sdb. Size and mount point optional.' ) do |x|
-        options[:raw_sdb] = x || '10G'
+        options[:raw_sdb] = x || '10G,/pub'
       end
       opts.on( '--sourcevm SOURCEVM', 'Source VM from which to clone new VM.' ) do |x|
         options[:source_vm] = x 
@@ -128,7 +128,7 @@ class Vsphere < Mkvm
     debug( 'INFO', "CPU: #{options[:cpu]}" ) if options[:debug]
     debug( 'INFO', "Mem: #{options[:mem]} MiB" ) if options[:debug]
     debug( 'INFO', "sda: #{options[:sda]} KiB" ) if options[:debug]
-    debug( 'INFO', "sdb: #{options[:sdb]} KiB" ) if options['sdb'] and options[:debug]
+    debug( 'INFO', "sdb: #{options[:sdb]} KiB" ) if options[:sdb] and options[:debug]
     debug( 'INFO', "sdb_path: #{options[:sdb_path]}" ) if options[:sdb_path] and options[:debug]
 
     if ! options[:network]
@@ -173,16 +173,22 @@ The mapping looks something like:
       # If we need a second disk put it on the same datastore as the source VM
       datastore = ''
       sdb_size = false
+      sdb_path = ''
       if options[:sdb]
         sdb_size = options[:sdb] 
+        sdb_path = options[:sdb_path]
         source_vm.datastore.each { |ds|
           datastore = ds.name if ds.name =~ /VMstore/
         }
       end
 
       # Generate the clone spec
-      clone_spec = generate_clone_spec(source_vm.config, dc, rp, options[:cpu], options[:mem], datastore, options[:network][options[:subnet]]['name'], cluster, sdb_size)
+      clone_spec = generate_clone_spec(source_vm.config, dc, rp, options[:cpu], options[:mem],
+                                         datastore, options[:network][options[:subnet]]['name'],
+                                           cluster, sdb_size, sdb_path, options[:extra])
+
       clone_spec.customization = ip_settings(options[:ip], options[:gateway], options[:netmask], options[:domain], options[:dns], options[:hostname])
+
       debug( 'INFO', "Cloning #{options[:source_vm]} to new VM: #{options[:hostname]}" ) if options[:debug]
       source_vm.CloneVM_Task(:folder => source_vm.parent, :name => options[:hostname], :spec => clone_spec).wait_for_completion
 
@@ -287,19 +293,22 @@ The mapping looks something like:
   end
 
    # Populate the VM clone specification
-  def generate_clone_spec(source_config, dc, resource_pool, cpus, memory, datastore, network, cluster, sdb_size)
+  def generate_clone_spec(source_config, dc, resource_pool, cpus, memory, datastore, network, cluster, sdb_size, sdb_path, extra)
 
     clone_spec = RbVmomi::VIM.VirtualMachineCloneSpec(:location => RbVmomi::VIM.VirtualMachineRelocateSpec(:pool => resource_pool), :template => false, :powerOn => true)
-    clone_spec.config = RbVmomi::VIM.VirtualMachineConfigSpec(:deviceChange => Array.new, :extraConfig => nil)
+    clone_spec.config = RbVmomi::VIM.VirtualMachineConfigSpec(:deviceChange => Array.new, :extraConfig => Array.new)
 
+    # Network device
     card = source_config.hardware.device.find { |d| d.deviceInfo.label == "Network adapter 1" }
     card.backing.port = get_switch_port(network, dc)
     network_spec = RbVmomi::VIM.VirtualDeviceConfigSpec(:device => card, :operation => "edit")
     clone_spec.config.deviceChange.push network_spec
 
+    # CPU and RAM
     clone_spec.config.numCPUs  = Integer(cpus)
     clone_spec.config.memoryMB = Integer(memory)
     
+    # Second disk support
     controllerkey = 100
     if sdb_size
       source_config.hardware.device.each { |device|
@@ -309,6 +318,14 @@ The mapping looks something like:
       }
       disk_spec = disk_config(datastore, controllerkey, sdb_size, 1)
       clone_spec.config.deviceChange.push disk_spec
+      clone_spec.config.extraConfig << { :key => 'guestinfo.sdb_path', :value => sdb_path }
+    end
+
+    # Extra config for customizing the VM on first boot.
+    if not extra.to_s.empty?
+      extra.split.each_index { |index|
+        clone_spec.config.extraConfig << { :key => "guestinfo.#{index.to_s}", :value => extra.split[index] }
+      }
     end
 
     return clone_spec
