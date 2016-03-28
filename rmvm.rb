@@ -35,9 +35,7 @@ if File.exists? Dir.home + "/.mkvm.yaml"
 end
 
 $debug = false
-
-## STOP EDITING ##
-
+exit_code = 0
 
 # enable debug output
 def debug(prefix, msg)
@@ -154,7 +152,6 @@ optparse.parse!
 # But let's be cautious
 if ARGV.count == 0
   abort "Missing hostname!"
-  exit
 elsif ARGV.count > 1
   abort "Just one hostname, please!"
 end
@@ -184,7 +181,8 @@ if options[:vmware]
     begin
       vm.PowerOffVM_Task.wait_for_completion
     rescue Exception => msg
-      abort "Failed to poweroff #{options[:hostname]}: #{msg}"
+      puts "Failed to poweroff #{options[:hostname]}: #{msg}"
+      exit_code += 1
     end
   end
   
@@ -193,7 +191,8 @@ if options[:vmware]
     vm.Destroy_Task.wait_for_completion
     puts "#{options[:hostname]} has been destroyed/removed from VMware."
   rescue Exception => msg
-    abort "Failed to destroy #{options[:hostname]} from VMware: #{msg}."
+    puts "Failed to destroy #{options[:hostname]} from VMware: #{msg}."
+    exit_code += 1
   end
 end
 
@@ -221,12 +220,14 @@ if options[:satellite]
     system = response.pop
     if not system or response.any?
       puts "Unable to match '#{options[:hostname]}' in Satellite. Manual deletion required."
+      exit_code += 1
     else
       client.call("system.deleteSystem", key, system["id"])
       puts "Server '#{options[:hostname]}' deleted from Satellite."
     end
   rescue Exception => msg
     puts "Error deleting system from Satellite: #{msg}"
+    exit_code += 1
   end
 end
 
@@ -295,6 +296,7 @@ if options[:puppet]
   response = http.start {|http_request| http_request.request(request)}
   if not response.code.start_with? "2"
     puts "There was an error with your PuppetDB request: #{response.code}"
+    exit_code += 1
   else
     puts "Server '#{options[:hostname]}' deactivated in PuppetDB. Request uuid: '#{JSON.parse(response.body)["uuid"]}'"
   end
@@ -342,6 +344,7 @@ if options[:puppet]
     puts "Puppet certificates for server '#{options[:hostname]}' revoked & removed"
   else
     puts "Some or all of the Puppet removal failed."
+    exit_code += 1
   end
 end
 
@@ -358,6 +361,7 @@ if options[:ipam]
   response = http.request(request)
   if response.code != "200"
     puts "There was an error with your IPAM request: #{response.code}"
+    exit_code += 1
   else
     del_response = response.body
     puts "#{del_response}"
@@ -377,3 +381,5 @@ if options[:mail_server] and options[:mail_from] and options[:mail_to]
     smtp.send_message msg_body, options[:mail_from], options[:mail_to]
   end
 end
+
+exit exit_code
