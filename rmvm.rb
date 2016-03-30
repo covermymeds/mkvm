@@ -48,7 +48,7 @@ end
 _self = File.basename($0)
 # parse our command-line options
 optparse = OptionParser.new do|opts|
-  opts.banner = "Usage: #{_self} [options] hostname"
+  opts.banner = "Usage: #{_self} [options] fqdn"
   opts.separator ""
   opts.separator "VSphere options:"
   opts.on( "--no-vmware", "Do not remove from VMware") do |x|
@@ -148,16 +148,17 @@ end
 optparse.parse!
 
 
-# What's left over should be the hostname.
+# What's left over should be the fqdn.
 # But let's be cautious
 if ARGV.count == 0
-  abort "Missing hostname!"
+  abort "Missing fqdn!"
 elsif ARGV.count > 1
-  abort "Just one hostname, please!"
+  abort "Just one fqdn, please!"
 end
 
 # Groovy.
-options[:hostname] = ARGV[0].downcase
+options[:fqdn] = ARGV[0].downcase
+options[:hostname] = options[:fqdn].split('.')[0]
 
 # we don't want to require passords on the command line
 if not options[:password]
@@ -173,31 +174,31 @@ if options[:vmware]
   
   debug( "INFO", "Connected to datacenter #{options[:dc]}" )
   
-  vm = dc.find_vm(options[:hostname]) or abort "Unable to locate #{options[:hostname]} in data center #{options[:dc]}"
+  vm = dc.find_vm(options[:fqdn]) or abort "Unable to locate #{options[:fqdn]} in data center #{options[:dc]}"
   pwrs = vm.runtime.powerState
   
   if pwrs == "poweredOn"
-    puts "Powering off #{options[:hostname]}"
+    puts "Powering off #{options[:fqdn]}"
     begin
       vm.PowerOffVM_Task.wait_for_completion
     rescue Exception => msg
-      puts "Failed to poweroff #{options[:hostname]}: #{msg}"
+      puts "Failed to poweroff #{options[:fqdn]}: #{msg}"
       exit_code += 1
     end
   end
   
-  puts "Destroying #{options[:hostname]}"
+  puts "Destroying #{options[:fqdn]}"
   begin
     vm.Destroy_Task.wait_for_completion
-    puts "#{options[:hostname]} has been destroyed/removed from VMware."
+    puts "#{options[:fqdn]} has been destroyed/removed from VMware."
   rescue Exception => msg
-    puts "Failed to destroy #{options[:hostname]} from VMware: #{msg}."
+    puts "Failed to destroy #{options[:fqdn]} from VMware: #{msg}."
     exit_code += 1
   end
 end
 
 if options[:satellite]
-  puts "Removing #{options[:hostname]} from Satellite...."
+  puts "Removing #{options[:fqdn]} from Satellite...."
 
   # If we weren't given different satellite credentials, use vSphere credentials
   options[:sat_username] = options[:sat_username] ? options[:sat_username] : options[:username]
@@ -213,20 +214,23 @@ if options[:satellite]
     # Auth
     key = client.call("auth.login", options[:sat_username], options[:sat_password])
     
-    # Search Satellite for our system's hostname
-    response = client.call("system.search.hostname", key, options[:hostname])
+    # Generate a unique list of systems. This requires the removal of the last_checkin element since 
+    # that is always unique.
+    systems = (client.call("system.search.hostname", key, options[:hostname]) +
+               client.call("system.search.hostname", key, options[:fqdn])).each {|system| system.delete('last_checkin')}.uniq
 
     # Ensure that results were found from Satellite
-    if response.any?
-      response.each do |system|
-        # system.search.hostname will return non-exact matches. Make sure the system hostname is an exact match
-        if system["hostname"] == options[:hostname]
+    if systems.any?
+      systems.each do |system|
+        # system.search.hostname will return non-exact matches. Make sure the system hostname is an exact match for
+        # either fqdn or short hostname
+        if [options[:fqdn], options[:hostname]].include? system["hostname"]
           client.call("system.deleteSystem", key, system["id"])
         end
       end
-      puts "Server '#{options[:hostname]}' deleted from Satellite."
+      puts "Server '#{options[:fqdn]}' deleted from Satellite."
     else
-      puts "Unable to match '#{options[:hostname]}' in Satellite. Manual deletion required."
+      puts "Unable to match '#{options[:fqdn]}' in Satellite. Manual deletion required."
       exit_code += 1
     end
 
@@ -237,11 +241,11 @@ if options[:satellite]
 end
 
 if options[:puppet]
-  puts "Removing #{options[:hostname]} from Puppet...."
+  puts "Removing #{options[:fqdn]} from Puppet...."
 
   # Defaults to build URLs
   puppetmaster_default_port = 8140
-  puppetmaster_default_path = "/puppet-ca/v1/certificate_status/#{options[:hostname]}"
+  puppetmaster_default_path = "/puppet-ca/v1/certificate_status/#{options[:fqdn]}"
   puppetdb_default_port = 8081
   puppetdb_default_path = "/pdb/cmd/v1"
 
@@ -294,7 +298,7 @@ if options[:puppet]
   request.body = {
     "command" => "deactivate node",
     "version" => 3,
-    "payload" => {"certname" => options[:hostname]},
+    "payload" => {"certname" => options[:fqdn]},
   }.to_json
 
   # Send request to API
@@ -303,7 +307,7 @@ if options[:puppet]
     puts "There was an error with your PuppetDB request: #{response.code}"
     exit_code += 1
   else
-    puts "Server '#{options[:hostname]}' deactivated in PuppetDB. Request uuid: '#{JSON.parse(response.body)["uuid"]}'"
+    puts "Server '#{options[:fqdn]}' deactivated in PuppetDB. Request uuid: '#{JSON.parse(response.body)["uuid"]}'"
   end
 
   #
@@ -346,7 +350,7 @@ if options[:puppet]
   end
 
   if success
-    puts "Puppet certificates for server '#{options[:hostname]}' revoked & removed"
+    puts "Puppet certificates for server '#{options[:fqdn]}' revoked & removed"
   else
     puts "Some or all of the Puppet removal failed."
     exit_code += 1
@@ -354,10 +358,10 @@ if options[:puppet]
 end
 
 if options[:ipam]
-  puts "Removing #{options[:hostname]} from IPAM...."
+  puts "Removing #{options[:fqdn]} from IPAM...."
 
   # Send delete request to phpipam system
-  uri = options[:del_uri].gsub(/APIAPP|APITOKEN|HOSTNAME/, {"APIAPP" => options[:apiapp], "APITOKEN" => options[:apitoken], "HOSTNAME" => options[:hostname],})
+  uri = options[:del_uri].gsub(/APIAPP|APITOKEN|HOSTNAME/, {"APIAPP" => options[:apiapp], "APITOKEN" => options[:apitoken], "HOSTNAME" => options[:fqdn],})
   uri = URI.escape(uri)
   uri = URI.parse(uri)
   http = Net::HTTP.new(uri.host, uri.port)
@@ -377,7 +381,7 @@ end
 msg_body = <<END_MSG
 From: #{options[:mail_from]}
 To: #{options[:mail_to]}
-Subject: #{options[:hostname]} has been deleted by rmvm.
+Subject: #{options[:fqdn]} has been deleted by rmvm.
 END_MSG
 
 # only send email if we have an SMTP server, a from address, and a to address
