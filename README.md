@@ -11,6 +11,10 @@ Sane default values are provided for all optional arguments. All defaults can be
 * [License](#license)
 
 ## Installation
+```shell
+$ sudo gem install mkvm
+```
+
 `mkvm.rb` requires the [RbVmomi](https://github.com/vmware/rbvmomi) library from VMware.  Specifically, it requires version 1.8.2.  You can install this with the `gem` command:
 
 ```shell
@@ -59,15 +63,18 @@ VM options:
     -t, --template TEMPLATE          VM template: small, medium, large, xlarge
         --custom cpu,mem,sda         CPU, Memory, and /dev/sda
         --sdb [10G{,/pub}]           Add /dev/sdb. Size and mount point optional.
+        --sourcevm SOURCEVM          Source VM from which to clone new VM.
         --[no-]upload                Upload the ISO to the ESX cluster (true)
         --[no-]vm                    Build the VM (true)
         --[no-]power                 Power on the VM after building it (true)
+        --[no-]clone                 Clone from the template VM.
 automated IPAM options:
     -s, --subnet SUBNET              subnet in dotted quad, ex: 10.10.2.0
         --auto-uri uri               URI full path for auto IP system ex: http://blah/api/blah.php()
 IP options:
     -G, --gw-octet                   Gateway octet (1)
 General options:
+        --extra "ONE=1 TWO=2"        extra args to pass to boot line or to extraConfigs in the case of VM clone
     -v, --debug                      Enable verbose output
     -h, --help                       This help message
 ```
@@ -163,6 +170,9 @@ Several defaul plugins are provided:
 
 An example plugin is also provided (but not activated) to demonstrate how to add custom command line options.
 
+## Cloning VMs
+mkvm supports cloning a new VM from an existing VM.  In this case the VM is fully customizable with the exception of the `sda` disk size.
+
 ## Examples
 To create a small VM named foobar:
 ```shell
@@ -183,6 +193,11 @@ $ ./mkvm.rb --custom 3,3G,30G -i 192.168.100.5 --sdb 100G foobar
 Create an ISO for a medium RHEL 7 system named foobar and pass a couple of extra options to the boot command line:
 ```bash
 $ ./mkvm.rb -t medium -r 7 --extra "console=ttyS0 ks.sendmac noverifyssl sshd" foobar
+```
+
+Create a VM cloned from an existing VM.
+```bash
+$ ./mkvm.rb -t medium --sourcevm rebar --clone foobar
 ```
 
 ## License
