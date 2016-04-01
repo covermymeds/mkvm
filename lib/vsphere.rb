@@ -321,6 +321,10 @@ The mapping looks something like:
       clone_spec.config.extraConfig << { :key => 'guestinfo.sdb_path', :value => sdb_path }
     end
 
+    # Remove the cdrom
+    cdrom = source_config.hardware.device.detect { |x| x.deviceInfo.label == "CD/DVD drive 1" }
+    clone_spec.config.deviceChange.push RbVmomi::VIM.VirtualDeviceConfigSpec(:operation=>:remove, :device=> cdrom)
+
     # Extra config for customizing the VM on first boot.
     if not extra.to_s.empty?
       extra.split.each_index { |index|
