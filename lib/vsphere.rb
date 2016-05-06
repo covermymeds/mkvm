@@ -38,6 +38,9 @@ class Vsphere < Mkvm
       opts.on( '-C', '--cluster CLUSTER', "vSphere cluster (#{options[:cluster]})") do |x|
         options[:cluster] = x
       end
+      opts.on( '-F', '--folder FOLDER', "vSphere vm folder (#{options[:folder]})") do |x|
+        options[:folder] = x
+      end
       opts.on( '--[no-]insecure', "Do not validate vSphere SSL certificate (#{options[:insecure]})") do |x|
         options[:insecure] = x
       end
@@ -163,7 +166,13 @@ The mapping looks something like:
     debug( 'INFO', "Connected to datacenter #{options[:dc]}" ) if options[:debug]
     cluster = dc.hostFolder.children.find { |x| x.name == options[:cluster] } or abort "vSphere cluster #{options[:cluster]} not found"
     debug( 'INFO', "Found VMware cluster #{options[:cluster]}" ) if options[:debug]
-    vmFolder = dc.vmFolder
+
+    if options[:folder]
+      vmFolder = dc.vmFolder.children.find { |x| x.name == options[:folder] } or abort "vSphere vmFolder #{options[:folder]} not found"
+    else
+      vmFolder = dc.vmFolder
+    end
+
     rp = cluster.resourcePool
 
     if options[:clone]
@@ -190,7 +199,7 @@ The mapping looks something like:
       clone_spec.customization = ip_settings(options[:ip], options[:gateway], options[:netmask], options[:domain], options[:dns], options[:hostname])
 
       debug( 'INFO', "Cloning #{options[:source_vm]} to new VM: #{options[:hostname]}" ) if options[:debug]
-      source_vm.CloneVM_Task(:folder => source_vm.parent, :name => options[:hostname], :spec => clone_spec).wait_for_completion
+      source_vm.CloneVM_Task(:folder => vmFolder, :name => options[:hostname], :spec => clone_spec).wait_for_completion
 
     else
 

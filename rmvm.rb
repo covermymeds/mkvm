@@ -67,6 +67,9 @@ optparse = OptionParser.new do|opts|
   opts.on( "-D", "--dc DATACENTER", "vSphere data center (#{options[:dc]})") do |x|
     options[:dc] = x
   end
+  opts.on( '-F', '--folder FOLDER', "vSphere vm folder (#{options[:folder]})") do |x|
+    options[:folder] = x
+  end
   opts.separator ""
 
   opts.separator "Satellite options:"
@@ -190,7 +193,13 @@ if options[:vmware]
   
   debug( "INFO", "Connected to datacenter #{options[:dc]}" )
   
-  vm = dc.find_vm(options[:fqdn]) or abort "Unable to locate #{options[:fqdn]} in data center #{options[:dc]}"
+  if options[:folder]
+    vmFolder = dc.vmFolder.children.find { |x| x.name == options[:folder] } or abort "vSphere vmFolder #{options[:folder]} not found"
+  else
+    vmFolder = dc.vmFolder
+  end
+
+  vm = vmFolder.find(options[:fqdn]) or abort "Unable to locate #{options[:fqdn]} in data center #{options[:dc]}"
   pwrs = vm.runtime.powerState
   
   if pwrs == "poweredOn"
