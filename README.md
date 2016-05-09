@@ -65,8 +65,6 @@ VM options:
 automated IPAM options:
     -s, --subnet SUBNET              subnet in dotted quad, ex: 10.10.2.0
         --auto-uri uri               URI full path for auto IP system ex: http://blah/api/blah.php()
-IP options:
-    -G, --gw-octet                   Gateway octet (1)
 General options:
     -v, --debug                      Enable verbose output
     -h, --help                       This help message

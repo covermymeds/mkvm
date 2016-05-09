@@ -1,20 +1,6 @@
 class Ip < Plugin
   # This class provides a few sanity checks on the IP address.
 
-  # This class also exposes a new option: 'gateway_octet'
-  # which can be used to define the gateway IP address
-
-  def self.defaults
-    return { :gateway_octet => '1' }
-  end
-
-  def self.optparse opts, options
-    opts.separator 'IP options:'
-    opts.on( '-G', '--gw-octet', "Gateway octet (#{options[:gateway_octet]})") do |x|
-      options[:gateway_octet] = x
-    end
-  end
-
   def self.pre_validate options
     # if we have an IP address (whether specified on the command line
     # or injected by other plugins), let's compare that with a
@@ -32,9 +18,8 @@ class Ip < Plugin
 
     # if we don't have a gateway address we'll compute one
     if ! options[:gateway]
-      octets = options[:ip].split('.')
-      octets[-1] = options[:gateway_octet]
-      options[:gateway] = octets.join('.')
+      require 'ipaddr'
+      options[:gateway] = IPAddr.new(options[:ip]).mask(options[:subnet]).to_range().first(2).last().to_s()
     end
   end
 
