@@ -83,10 +83,10 @@ class Autoip < Plugin
       response = http.request(request)
       if response.code == "404"
         puts "Requesting IP for #{options[:hostname]}"
-        elsif response.code != "200"
-          abort "There was an error requesting your IP address, IPAM returned code: #{response.code}, message: #{response.body}"
-        else
-          abort "#{options[:hostname]} is already assigned #{JSON.parse(response.body)["data"][0]["ip"]}"
+      elsif response.code == "200"
+        abort "#{options[:hostname]} is already assigned #{JSON.parse(response.body)["data"][0]["ip"]}"
+      else
+        abort "There was an error requesting your IP address, IPAM returned code: #{response.code}, message: #{response.body}"
       end
 
       # Get the id of the VLAN to request address
@@ -100,9 +100,9 @@ class Autoip < Plugin
       request.add_field("token",  auth_token)
       response = http.request(request)
       if response.code =="404"
-          abort "The subnet you requested #{options[:subnet]} can't be found message: #{response.body}"
-        elsif response.code != "200"
-          abort "There was an error while searching for the id of the requested subnet #{response.code}, message: #{response.body}"
+        abort "The subnet you requested #{options[:subnet]} can't be found message: #{response.body}"
+      elsif response.code != "200"
+        abort "There was an error while searching for the id of the requested subnet #{response.code}, message: #{response.body}"
       end
       subnetId = JSON.parse(response.body)["data"][0]["id"]
 
