@@ -84,6 +84,7 @@ class Autoip < Plugin
       if response.code == "404"
         puts "Requesting IP for #{options[:hostname]}"
       elsif response.code == "200"
+        options[:ip] = JSON.parse(response.body)["data"][0]["ip"]
         abort "#{options[:hostname]} is already assigned #{JSON.parse(response.body)["data"][0]["ip"]}"
       else
         abort "There was an error requesting your IP address, IPAM returned code: #{response.code}, message: #{response.body}"
@@ -100,7 +101,7 @@ class Autoip < Plugin
       request.add_field("token",  auth_token)
       response = http.request(request)
       if response.code =="404"
-        abort "The subnet you requested #{options[:subnet]} can't be found message: #{response.body}"
+        abort "The subnet you requested #{options[:subnet]} can't be found, message: #{response.body}"
       elsif response.code != "200"
         abort "There was an error while searching for the id of the requested subnet #{response.code}, message: #{response.body}"
       end
@@ -117,7 +118,7 @@ class Autoip < Plugin
       request.add_field("token",  auth_token)
       response = http.request(request)
       if response.code != "200"
-        abort "There was an error while requesting firs free address code: #{response.code}, message: #{response.body}"
+        abort "There was an error while requesting first free address code: #{response.code}, message: #{response.body}"
       end
       options[:ip] = JSON.parse(response.body)["data"]
 
