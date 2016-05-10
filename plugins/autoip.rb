@@ -69,7 +69,6 @@ class Autoip < Plugin
         abort "There was an error requesting your IP address, IPAM returned code: #{response.code}, #{JSON.parse(response.body)["message"]}"
       end
       auth_token = JSON.parse(response.body)["data"]["token"]
-      puts auth_token
    
       # Check for an existing host in IPAM
 
@@ -100,13 +99,15 @@ class Autoip < Plugin
       request = Net::HTTP::Get.new(uri.request_uri)
       request.add_field("token",  auth_token)
       response = http.request(request)
-      if response.code != "200"
-        abort "There was an error requesting your IP address, IPAM returned code: #{response.code}, message: #{response.body}"
+      if response.code =="404"
+          abort "The subnet you requested #{options[:subnet]} can't be found message: #{response.body}"
+        elsif response.code != "200"
+          abort "There was an error while searching for the id of the requested subnet #{response.code}, message: #{response.body}"
       end
-      response_hash = JSON.parse(response.body)
-      puts response_hash["code"]
-      puts response_hash["data"][0]["id"]
-      subnetId = response_hash["data"][0]["id"]
+      subnetId = JSON.parse(response.body)["data"][0]["id"]
+
+      # Get the first free address in requested subnet
+      puts "running insert"
 
       uri = options[:add_uri]
       uri = URI.escape(uri)
@@ -117,53 +118,26 @@ class Autoip < Plugin
       request.add_field("token",  auth_token)
       response = http.request(request)
       if response.code != "200"
-        abort "There was an error requesting your IP address, IPAM returned code: #{response.code}, message: #{response.body}"
+        abort "There was an error while requesting firs free address code: #{response.code}, message: #{response.body}"
       end
-      response_hash = JSON.parse(response.body)
-      puts response_hash["code"]
-      puts response_hash["data"]
-      new_ip = response_hash["data"]
+      options[:ip] = JSON.parse(response.body)["data"]
+      #new_ip = JSON.parse(response.body)["data"]
+      puts options[:ip]
+
+      # Commit the new IP and hostname to the database.
 
       uri = options[:add_uri]
       uri = URI.escape(uri)
-      uri = URI.parse(uri.concat("addresses/?subnetId=#{subnetId}&ip=#{new_ip}&hostname=#{options[:hostname]}&owner=#{username}"))
+      uri = URI.parse(uri.concat("addresses/?subnetId=#{subnetId}&ip=#{options[:ip]}&hostname=#{options[:hostname]}&owner=#{username}"))
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = true
       request = Net::HTTP::Post.new(uri.request_uri)
       request.add_field("token",  auth_token)
       response = http.request(request)
-      if response.code != "201"
-        abort "There was an error requesting your IP address, IPAM returned code: #{response.code}, message: #{response.body}"
-      end
-      response_hash = JSON.parse(response.body)
       puts response.body
+      if response.code != "201"
+        abort "There was an error saving the IP and host to the database, returned code: #{response.code}, message: #{response.body}"
+      end
     end
-    exit
-
-
-
-      # Get an IP from our IPAM system
-      uri = options[:add_uri].gsub(/SUBNET|HOSTNAME|USER|APIAPP|APITOKEN/, {
-                                     'SUBNET'   => options[:subnet],
-                                     'HOSTNAME' => options[:hostname],
-                                     'USER'     => username,
-                                     'APIAPP'   => options[:apiapp],
-                                     'APITOKEN' => options[:apitoken],
-                                      } )
-      uri = URI.escape(uri)
-      uri = URI.parse(uri)
-      http = Net::HTTP.new(uri.host, uri.port)
-      http.use_ssl = true
-      request = Net::HTTP::Get.new(uri.request_uri)
-      response = http.request(request)
-      if response.code != "200"
-        abort "There was an error requesting your IP address, IPAM returned #{response.code}"
-      end
-      if response.body =~ /Error: subnet not in IPAM/
-        abort "Error: subnet #{options[:subnet]} not in IPAM"
-      end
-      options[:ip] = response.body
-      puts "Assigned IP: #{options[:ip]}"
-#    end
   end
 end
