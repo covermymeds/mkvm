@@ -107,7 +107,6 @@ class Autoip < Plugin
       subnetId = JSON.parse(response.body)["data"][0]["id"]
 
       # Get the first free address in requested subnet
-      puts "running insert"
 
       uri = options[:add_uri]
       uri = URI.escape(uri)
@@ -121,8 +120,6 @@ class Autoip < Plugin
         abort "There was an error while requesting firs free address code: #{response.code}, message: #{response.body}"
       end
       options[:ip] = JSON.parse(response.body)["data"]
-      #new_ip = JSON.parse(response.body)["data"]
-      puts options[:ip]
 
       # Commit the new IP and hostname to the database.
 
@@ -134,7 +131,6 @@ class Autoip < Plugin
       request = Net::HTTP::Post.new(uri.request_uri)
       request.add_field("token",  auth_token)
       response = http.request(request)
-      puts response.body
       if response.code != "201"
         abort "There was an error saving the IP and host to the database, returned code: #{response.code}, message: #{response.body}"
       end
