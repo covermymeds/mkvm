@@ -134,6 +134,7 @@ class Autoip < Plugin
       if response.code != "201"
         abort "There was an error saving the IP and host to the database, returned code: #{response.code}, message: #{response.body}"
       end
+      puts "Assigned IP: #{options[:ip]}"
     end
   end
 end
