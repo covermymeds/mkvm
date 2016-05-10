@@ -118,7 +118,7 @@ class Autoip < Plugin
       request.add_field("token",  auth_token)
       response = http.request(request)
       if response.code != "200"
-        abort "There was an error while requesting first free address code: #{response.code}, message: #{response.body}"
+        abort "There was an error while requesting first free address, code: #{response.code}, message: #{response.body}"
       end
       options[:ip] = JSON.parse(response.body)["data"]
 
