@@ -21,9 +21,6 @@ class Autoip < Plugin
     opts.on( '--apitoken apitoken', "Token to use with the api application (#{options[:apitoken]})") do |x|
       options[:apitoken] = x
     end
-#    opts.on( '-p', '--password PASSWORD', 'vSphere password') do |x|
-#      options[:password] = x
-#    end
     return opts, options
   end
 
@@ -44,27 +41,64 @@ class Autoip < Plugin
         options[:password] = STDIN.noecho(&:gets).chomp
         puts ''
       end
-      puts "Requesting IP in #{options[:subnet]} vlan"
-puts username
 
+
+      # Authenticate and get a token for further operations
+
+      puts "Requesting auth token for #{username}"
       uri = options[:add_uri].gsub(/APIAPP/, {
         'APIAPP' => options[:apiapp],
       })
       uri = uri 
       uri = URI.escape(uri)
       uri = URI.parse(uri.concat("user/"))
-      http = Net::HTTP.new(uri.host, uri.port)
-      http.use_ssl = true
       request = Net::HTTP::Post.new(uri.request_uri)
       request.basic_auth username, options[:password]
+      retries = [3, 5, 10]
+      begin
+        puts "Burrrap!\n"
+      #http = Net::HTTP.new(uri.host, uri.port, :read_timeout => 5, :use_ssl => true, :basic_auth => username, options[:password])
+      response = Net::HTTP.start(uri.host, uri.port, :read_timeout => 5, :use_ssl => true){|http| http.request(request)}
+      #http.use_ssl = true
+      #request = Net::HTTP::Post.new(uri.request_uri)
+      #request.basic_auth username, options[:password]
+        #response = http.request(request)
+      rescue Net::ReadTimeout
+        if delay = retries.shift
+          sleep delay
+          retry
+        else
+          abort "The request has timed out, check your username/password and try again"
+        end
+      end
+      if response.code != "200"
+        abort "There was an error requesting your IP address, IPAM returned code: #{response.code}, #{JSON.parse(response.body)["message"]}"
+      end
+#      response_hash = JSON.parse(response.body)
+#      puts response_hash["code"]
+      puts JSON.parse(response.body)["data"]["token"]
+      auth_token = JSON.parse(response.body)["data"]["token"]
+      puts auth_token
+   
+      puts "Checking for existing IP for host #{options[:hostname]}"
+      uri = options[:add_uri]
+      uri = URI.escape(uri)
+      uri = URI.parse(uri.concat("addresses/search_hostname/#{options[:hostname]}/"))
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl = true
+      request = Net::HTTP::Get.new(uri.request_uri)
+      request.add_field("token",  auth_token)
       response = http.request(request)
       if response.code != "200"
-        abort "There was an error requesting your IP address, IPAM returned code: #{response.code}, message: #{response.body}"
+      #  if response.code == "404"
+      #    break
+      #  else
+          abort "There was an error requesting your IP address, IPAM returned code: #{response.code}, message: #{response.body}"
+      #  end
       end
-      response_hash = JSON.parse(response.body)
-      puts response_hash["code"]
-      puts response_hash["data"]["token"]
-      auth_token = response_hash["data"]["token"]
+      options[:ip] = JSON.parse(response.body)["data"][0]["ip"]
+      abort "#{options[:hostname]} is already assigned #{JSON.parse(response.body)["data"][0]["ip"]}"
+      
 
       uri = options[:add_uri]
       uri = URI.escape(uri)
