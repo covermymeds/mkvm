@@ -133,7 +133,7 @@ class Autoip < Plugin
       request.add_field("token",  auth_token)
       response = http.request(request)
       if response.code != "201"
-        options[:ip] = "0.0.0.0"
+        options[:ip] = ""
         abort "There was an error saving the IP and host to the database, returned code: #{response.code}, message: #{response.body}"
       end
       puts "Assigned IP: #{options[:ip]}"
