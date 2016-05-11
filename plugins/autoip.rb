@@ -85,7 +85,8 @@ class Autoip < Plugin
         puts "Requesting IP for #{options[:hostname]}"
       elsif response.code == "200"
         options[:ip] = JSON.parse(response.body)["data"][0]["ip"]
-        abort "#{options[:hostname]} is already assigned #{JSON.parse(response.body)["data"][0]["ip"]}"
+        puts "#{options[:hostname]} is already assigned #{options[:ip]}"
+        return
       else
         abort "There was an error requesting your IP address, IPAM returned code: #{response.code}, message: #{response.body}"
       end
