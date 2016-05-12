@@ -114,7 +114,7 @@ class Vsphere < Mkvm
       abort '-t and --custom are mutually exclusive'
     end
 
-    abort 'Either --datastore or --dsregex is required' if options[:datastore].nil? or options[:dsregex].nil?
+    abort 'Either --datastore or --dsregex is required' if options[:datastore].nil? and options[:ds_regex].nil?
 
     if options[:template]
       options[:cpu], raw_mem, raw_sda = @templates[options[:template]]
