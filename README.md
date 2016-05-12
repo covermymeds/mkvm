@@ -92,7 +92,7 @@ The `outdir` parameter is where you want ISOs to be stored. This defaults to the
 
 Most of the arguments should be self-explanatory, but a few merit discussion.
 
-* **--datastore**: this is the datastore to use when building the VM.  Either this option or --dsregex must be supplied. 
+* **--datastore**: this is the datastore to use when building the VM.  Either this option or --dsregex must be supplied.  If both parameters are supplied --datastore is used. 
 * **--dsregex**: this is a regular expression that `mkvm.rb` will use to find the datastore to use when building the VM. `mkvm.rb` will use this regex to enumerate all the matching datastores and then select the one with the most space free. This should help ensure that `mkvm.rb` doesn't over-populate any single datastore (unless, of course, you only have a single datastore!).  This also allows you to control, on the fly, which datastore to use. Either this option or the explicit --datastore must be supplied.
 * **--isostore**: this is the datastore to which the resultant ISO file will be pushed. This store should be accessible by all the hosts within the cluster, to ensure that any host can build the VM.  A low-performance NFS share is usually suitable for this purpose.
 * **--vlan**: this is the full name of the VLAN to which the VM will be assigned. This option is commented out as vlan does not apply to DV Switching.  If you don't use DV Switching then you may want to uncomment this code.
