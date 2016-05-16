@@ -46,10 +46,10 @@ class Autoip < Plugin
       # Authenticate and get a token for further operations
 
       puts "Requesting auth token for #{username}"
-      uri = options[:add_uri].gsub(/APIAPP/, {
+      uri_sub = options[:add_uri].gsub(/APIAPP/, {
         'APIAPP' => options[:apiapp],
       })
-      uri = uri 
+      uri = uri_sub 
       uri = URI.escape(uri)
       uri = URI.parse(uri.concat("user/"))
       request = Net::HTTP::Post.new(uri.request_uri)
@@ -73,7 +73,7 @@ class Autoip < Plugin
       # Check for an existing host in IPAM
 
       puts "Checking for existing IP for host #{options[:hostname]}"
-      uri = options[:add_uri]
+      uri = uri_sub
       uri = URI.escape(uri)
       uri = URI.parse(uri.concat("addresses/search_hostname/#{options[:hostname]}/"))
       http = Net::HTTP.new(uri.host, uri.port)
@@ -93,7 +93,7 @@ class Autoip < Plugin
 
       # Get the id of the VLAN to request address
 
-      uri = options[:add_uri]
+      uri = uri_sub
       uri = URI.escape(uri)
       uri = URI.parse(uri.concat("subnets/cidr/#{options[:subnet]}"))
       http = Net::HTTP.new(uri.host, uri.port)
@@ -110,7 +110,7 @@ class Autoip < Plugin
 
       # Get the first free address in requested subnet
 
-      uri = options[:add_uri]
+      uri = uri_sub
       uri = URI.escape(uri)
       uri = URI.parse(uri.concat("subnets/#{subnetId}/first_free/"))
       http = Net::HTTP.new(uri.host, uri.port)
@@ -125,7 +125,7 @@ class Autoip < Plugin
 
       # Commit the new IP and hostname to the database.
 
-      uri = options[:add_uri]
+      uri = uri_sub
       uri = URI.escape(uri)
       uri = URI.parse(uri.concat("addresses/?subnetId=#{subnetId}&ip=#{options[:ip]}&hostname=#{options[:hostname]}&owner=#{username}"))
       http = Net::HTTP.new(uri.host, uri.port)

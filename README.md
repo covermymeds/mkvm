@@ -155,6 +155,8 @@ mkvm knows about four pre-defined VM sizes:
 
 All plugins should extend the `Plugin` class, defined in `lib/plugin.rb`.  Each plugin has numerous opportunities to interact with the overall process.
 
+Plugins are run in alphabetical order from the `plugins` directory.
+
 Plugins are **not** instantiated.
 
 Several defaul plugins are provided:

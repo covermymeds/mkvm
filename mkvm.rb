@@ -85,7 +85,8 @@ options[:hostname] = ARGV[0].downcase
 
 # we let plugins run their validation processes first
 # so that they might set values required by the core modules
-plugins.each { |p| Kernel.const_get(p).pre_validate(options) }
+# sort was added below to insure autoip runs before ip in plugins
+plugins.sort.each { |p| Kernel.const_get(p).pre_validate(options) }
 
 iso.validate(options)
 vsphere.validate(options)
