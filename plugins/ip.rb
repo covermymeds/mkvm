@@ -16,7 +16,6 @@ class Ip < Plugin
       end
     end
 
-    puts options[:ip]
     # if we don't have a gateway address we'll compute one
     if ! options[:gateway]
       require 'ipaddr'
