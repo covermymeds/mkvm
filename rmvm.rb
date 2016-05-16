@@ -26,6 +26,7 @@ options = {
   :puppet     => true,
   :puppet_env => "Production",
   :ipam       => true,
+  :shinken    => true,
 }
 
 # read config from mkvm.yaml, if it exists
@@ -65,6 +66,9 @@ optparse = OptionParser.new do|opts|
   end
   opts.on( "-D", "--dc DATACENTER", "vSphere data center (#{options[:dc]})") do |x|
     options[:dc] = x
+  end
+  opts.on( '-F', '--folder FOLDER', "vSphere vm folder (#{options[:folder]})") do |x|
+    options[:folder] = x
   end
   opts.separator ""
 
@@ -131,6 +135,21 @@ optparse = OptionParser.new do|opts|
   end
   opts.separator ""
 
+  opts.separator "Shinken options:"
+  opts.on("--no-shinken", "Do not schedule a Shinken downtime for this host") do |x|
+    options[:shinken] = false
+  end
+  opts.on("--shinken-url URL", "Shinken URL (#{options[:shinken_url]})") do |x|
+    options[:shinken_url] = x
+  end
+  opts.on("--shinken-username USERNAME", "Shinken user name (#{options[:shinken_username]})") do |x|
+    options[:shinken_username] = x
+  end
+  opts.on("--shinken-password PASSWORD", "Shinken password") do |x|
+    options[:shinken_password] = x
+  end
+  opts.separator ""
+
   opts.separator "General options:"
   opts.on( "--[no-]insecure", "Do not validate SSL certificates (#{options[:insecure]})") do |x|
     options[:insecure] = x
@@ -174,7 +193,13 @@ if options[:vmware]
   
   debug( "INFO", "Connected to datacenter #{options[:dc]}" )
   
-  vm = dc.find_vm(options[:fqdn]) or abort "Unable to locate #{options[:fqdn]} in data center #{options[:dc]}"
+  if options[:folder]
+    vmFolder = dc.vmFolder.children.find { |x| x.name == options[:folder] } or abort "vSphere vmFolder #{options[:folder]} not found"
+  else
+    vmFolder = dc.vmFolder
+  end
+
+  vm = vmFolder.find(options[:fqdn]) or abort "Unable to locate #{options[:fqdn]} in data center #{options[:dc]}"
   pwrs = vm.runtime.powerState
   
   if pwrs == "poweredOn"
@@ -389,6 +414,71 @@ if options[:mail_server] and options[:mail_from] and options[:mail_to]
   Net::SMTP.start(options[:mail_server], 25) do |smtp|
     smtp.send_message msg_body, options[:mail_from], options[:mail_to]
   end
+end
+
+if options[:shinken]
+  puts "Scheduling downtime for #{options[:hostname]} in Shinken...."
+
+  # If we weren't given different shinken credentials, use satellite credentials
+  options[:shinken_username] = options[:shinken_username] ? options[:shinken_username] : options[:sat_username]
+  options[:shinken_password] = options[:shinken_password] ? options[:shinken_password] : options[:sat_password]
+
+  # Downtime will be scheduled starting now & ending in 1 hour
+  downtime_start = Time.now.to_i
+  downtime_end = downtime_start + 3600
+
+  shinken_auth_path = "/user/auth"
+  shinken_downtime_path = "/action/SCHEDULE_HOST_DOWNTIME/#{options[:hostname]}/#{downtime_start}/#{downtime_end}/1/0/0/#{options[:shinken_username]}/rmvm%20downtime"
+
+  shinken_url = URI.parse(URI.escape(options[:shinken_url]))
+
+  # Setup http object
+  http = Net::HTTP.new(shinken_url.host, 443)
+  http.use_ssl = true
+  http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+
+  # SHINKEN AUTHENTICATION
+  request = Net::HTTP::Post.new(shinken_auth_path)
+  request.body = "login=#{options[:shinken_username]}&password=#{options[:shinken_password]}"
+
+  # Successful login attempts get 30X redirected to /dashboard
+  response = http.start {|http_request| http_request.request(request)}
+  if not response.code.start_with? "3" or not response["location"].end_with? "/dashboard"
+    puts "Unable to authenticate to Shinken"
+    exit exit_code + 1
+  end
+
+  # Make sure we received an authentication cookie from Shinken
+  begin
+    cookie = response["set-cookie"].split("; ")[0]
+    if not cookie
+      raise Exception.new("No authentication cookie set")
+    end
+  rescue Exception => msg
+    puts "Unable to authenticate to Shinken: #{msg}"
+    exit exit_code + 1
+  end
+
+  # SCHEDULE DOWNTIME
+  request = Net::HTTP::Get.new(shinken_downtime_path, initheader={"Cookie" => cookie})
+  response = http.start {|http_request| http_request.request(request)}
+  if not response.code.start_with? "2"
+    puts "Unable to downtime '#{options[:hostname]}'"
+    exit exit_code + 1
+  end
+
+  # Make sure that Shinken launched the command
+  begin
+    response_text = JSON.parse(response.body.gsub("'", "\""))["text"]
+    if not response_text.include? "Command launched"
+      raise Exception.new("Command not launched")
+    end
+  rescue Exception => msg
+    puts "Unable to downtime '#{options[:hostname]}'"
+    exit exit_code + 1
+  end
+
+  puts "Shinken downtime scheduled"
 end
 
 exit exit_code

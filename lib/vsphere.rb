@@ -38,10 +38,16 @@ class Vsphere < Mkvm
       opts.on( '-C', '--cluster CLUSTER', "vSphere cluster (#{options[:cluster]})") do |x|
         options[:cluster] = x
       end
+      opts.on( '-F', '--folder FOLDER', "vSphere vm folder (#{options[:folder]})") do |x|
+        options[:folder] = x
+      end
       opts.on( '--[no-]insecure', "Do not validate vSphere SSL certificate (#{options[:insecure]})") do |x|
         options[:insecure] = x
       end
-      opts.on( '--datastore DATASTORE', "vSphere datastore regex to use (#{options[:ds_regex]})") do |x|
+      opts.on( '--datastore DATASTORE', "vSphere datastore to use (#{options[:datastore]})") do |x|
+        options[:datastore] = x
+      end
+      opts.on( '--dsregex DATASTORE', "vSphere datastore regex to use (#{options[:ds_regex]})") do |x|
         options[:ds_regex] = x
       end
       opts.on( '--isostore ISOSTORE', "vSphere ISO store to use (#{options[:iso_store]})") do |x|
@@ -108,6 +114,8 @@ class Vsphere < Mkvm
       abort '-t and --custom are mutually exclusive'
     end
 
+    abort 'Either --datastore or --dsregex is required' if options[:datastore].nil? and options[:ds_regex].nil?
+
     if options[:template]
       options[:cpu], raw_mem, raw_sda = @templates[options[:template]]
     else
@@ -163,34 +171,44 @@ The mapping looks something like:
     debug( 'INFO', "Connected to datacenter #{options[:dc]}" ) if options[:debug]
     cluster = dc.hostFolder.children.find { |x| x.name == options[:cluster] } or abort "vSphere cluster #{options[:cluster]} not found"
     debug( 'INFO', "Found VMware cluster #{options[:cluster]}" ) if options[:debug]
-    vmFolder = dc.vmFolder
+
+    #select the datastore to use
+    if options[:datastore].nil?
+      ds_name = dc.datastore.find_all { |x| x.name =~ /#{options[:ds_regex]}/ }.max_by{ |i| i.info.freeSpace }.name
+    else
+      ds_name = options[:datastore]
+    end
+    debug( 'INFO', "Selected datastore: #{ds_name}" ) if options[:debug]
+
+    if options[:folder]
+      vmFolder = dc.vmFolder.children.find { |x| x.name == options[:folder] } or abort "vSphere vmFolder #{options[:folder]} not found"
+    else
+      vmFolder = dc.vmFolder
+    end
+
     rp = cluster.resourcePool
 
     if options[:clone]
       # Clone from Template VM
       source_vm = dc.find_vm("#{options[:source_vm]}") or abort "Failed to find source vm: #{options[:source_vm]}"
 
-      # If we need a second disk put it on the same datastore as the source VM
-      datastore = ''
+      # Second disk options
       sdb_size = false
       sdb_path = ''
       if options[:sdb]
         sdb_size = options[:sdb] 
         sdb_path = options[:sdb_path]
-        source_vm.datastore.each { |ds|
-          datastore = ds.name if ds.name =~ /VMstore/
-        }
       end
 
       # Generate the clone spec
       clone_spec = generate_clone_spec(source_vm.config, dc, rp, options[:cpu], options[:mem],
-                                         datastore, options[:network][options[:subnet]]['name'],
+                                         ds_name, options[:network][options[:subnet]]['name'],
                                            cluster, sdb_size, sdb_path, options[:extra])
 
       clone_spec.customization = ip_settings(options[:ip], options[:gateway], options[:netmask], options[:domain], options[:dns], options[:hostname])
 
       debug( 'INFO', "Cloning #{options[:source_vm]} to new VM: #{options[:hostname]}" ) if options[:debug]
-      source_vm.CloneVM_Task(:folder => source_vm.parent, :name => options[:hostname], :spec => clone_spec).wait_for_completion
+      source_vm.CloneVM_Task(:folder => vmFolder, :name => options[:hostname], :spec => clone_spec).wait_for_completion
 
     else
 
@@ -203,23 +221,22 @@ The mapping looks something like:
       time = Time.new
       controllerkey = 100
       annotation = "Created by " + options[:username] + " on " + time.strftime("%Y-%m-%d at %H:%M %p")
-      datastore = dc.datastore.find_all { |x| x.name =~ /#{options[:ds_regex]}/ }.max_by{ |i| i.info.freeSpace }.name
       vm_cfg = {
         :name         => options[:hostname],
         :annotation   => annotation,
         :guestId      => "rhel#{options[:major]}_64Guest",
         :files        => {
-          :vmPathName => "[#{datastore}]"
+          :vmPathName => "[#{ds_name}]"
         },
         :numCPUs      => options[:cpu],
         :memoryMB     => options[:mem],
         :deviceChange => [ paravirtual_scsi_controller,
-                           disk_config(datastore, controllerkey, options[:sda], 0),
+                           disk_config(ds_name, controllerkey, options[:sda], 0),
                            cdrom_config(options[:iso_store], options[:hostname]),
                            network_config(options[:network][options[:subnet]]['name'], dc),
                          ],
       }
-      vm_cfg[:deviceChange].push disk_config(datastore, controllerkey, options[:sdb], 1) if options[:sdb]
+      vm_cfg[:deviceChange].push disk_config(ds_name, controllerkey, options[:sdb], 1) if options[:sdb]
 
       # stop here if --no-vm
       if not options[:make_vm]
@@ -293,9 +310,11 @@ The mapping looks something like:
   end
 
    # Populate the VM clone specification
-  def generate_clone_spec(source_config, dc, resource_pool, cpus, memory, datastore, network, cluster, sdb_size, sdb_path, extra)
+  def generate_clone_spec(source_config, dc, resource_pool, cpus, memory, ds_name, network, cluster, sdb_size, sdb_path, extra)
 
-    clone_spec = RbVmomi::VIM.VirtualMachineCloneSpec(:location => RbVmomi::VIM.VirtualMachineRelocateSpec(:pool => resource_pool), :template => false, :powerOn => true)
+    datastore = dc.datastore.find { |ds| ds.name == ds_name }
+    clone_spec = RbVmomi::VIM.VirtualMachineCloneSpec(:location => RbVmomi::VIM.VirtualMachineRelocateSpec(:pool => resource_pool, :datastore => datastore),
+                                                      :template => false, :powerOn => true)
     clone_spec.config = RbVmomi::VIM.VirtualMachineConfigSpec(:deviceChange => Array.new, :extraConfig => Array.new)
 
     # Network device
@@ -316,7 +335,7 @@ The mapping looks something like:
           controllerkey = device.key
         end
       }
-      disk_spec = disk_config(datastore, controllerkey, sdb_size, 1)
+      disk_spec = disk_config(ds_name, controllerkey, sdb_size, 1)
       clone_spec.config.deviceChange.push disk_spec
       clone_spec.config.extraConfig << { :key => 'guestinfo.sdb_path', :value => sdb_path }
     end

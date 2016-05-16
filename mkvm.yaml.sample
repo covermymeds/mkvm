@@ -26,6 +26,7 @@
 :del_uri: https://ipam.dev/api/removeHost.php?host=HOSTNAME&apiapp=APIAPP&apitoken=APITOKEN
 :apiapp: ipamip
 :apitoken: ewqrpo3423sfghHYLM
+:shinken_url: https://shinken.example.com
 :dvswitch:
   'dc1': 'dvswitch1uuid'
   'dc2': 'dvswitch2uuid'
