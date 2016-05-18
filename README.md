@@ -32,6 +32,7 @@ Usage: mkvm.rb [options] hostname
 
 Kickstart options:
     -r, --major VERSION              Major OS release to use ()
+    -M, --minor VERSION              Minor OS release to use ()
         --url URL                    Kickstart URL ()
     -k, --ksdevice TYPE              ksdevice type to use (eth0)
     -i, --ip ADDRESS                 IP address
@@ -43,6 +44,7 @@ Kickstart options:
         --app-id APP_ID              APP_ID
         --extra "ONE=1 TWO=2"        extra args to pass to boot line
 ISO options:
+        --isolinux_remote_host HOST  Remote host from which to retrieve isolinux files.
         --srcdir DIR                 Directory containing isolinux templates (./isolinux)
         --outdir DIR                 Directory in which to write the ISO (./iso)
         --[no-]iso                   Build ISO (true)
@@ -86,7 +88,9 @@ isolinux/
 3 directories
 ```
 
-The default value of `srcdir` is the isolinux directory in this repo, which contains the sub-directories and templates expected.
+The default value of `srcdir` is the isolinux directory in this repo, which contains the sub-directories expected.  It is up to you to populate the files for your distribution as needed.
+
+Optionally the `--isolinux_remove_host HOSTNAME` argument can be passed.  mkvm will retrive isolinux files from this host with some seriously RedHat/Satellite/SSH based assumptions.
 
 The `outdir` parameter is where you want ISOs to be stored. This defaults to the `iso` directory in this repo.
 

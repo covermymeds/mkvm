@@ -10,6 +10,9 @@ class ISO < Mkvm
 
   def optparse opts, options
     opts.separator 'ISO options:'
+    opts.on( '--isolinux_remote_host REMOTE_HOSTNAME', "Remote host to fetch isolinux files") do |x|
+      options[:isolinux_remote_host] = x
+    end
     opts.on( '--srcdir DIR', "Directory containing isolinux templates (#{options[:srcdir]})") do |x|
       options[:srcdir] = x
     end
@@ -23,9 +26,11 @@ class ISO < Mkvm
   end
 
   def execute options
+
     return if ! options[:make_iso]
 
     hostname = options[:hostname]
+    kickstart = options[:ks_line]
 
     # grab the dirname of the isolinux path
     srcdir = File.realdirpath("#{options[:srcdir]}/#{options[:major]}/")
@@ -35,17 +40,27 @@ class ISO < Mkvm
     isoname = "#{hostname}.iso"
     work_dir = File.realdirpath(ENV['PWD'] + "/mkvm")
     tmp_dir = "#{work_dir}/#{hostname}"
-
-    # TODO: handle exceptions
     FileUtils.mkdir_p tmp_dir
 
-    # create the ISO template directory
-    FileUtils.cp_r srcdir, "#{tmp_dir}/isolinux"
+    # Fetch isolinux content.
+    if options[:isolinux_remote_host]
+      remote_path = "/var/satellite/rhn/kickstart/ks-rhel-x86_64-server-#{options[:major]}-#{options[:major]}.#{options[:minor]}/isolinux"
+
+      require 'net/scp'
+      Net::SCP.start(options[:isolinux_remote_host], ENV['USER']) do |scp|
+        scp.download! remote_path, tmp_dir, options = { :recursive => true }
+      end
+    else
+      # Copy the isolinux dir from local
+      FileUtils.cp_r srcdir, "#{tmp_dir}/isolinux"
+    end
 
     text = IO.read( "#{tmp_dir}/isolinux/isolinux.cfg" )
-    text.gsub!(/KICKSTART_PARMS/, options[:ks_line])
+    text.gsub!(/append initrd=initrd.img\n/, "append initrd=initrd.img #{kickstart}\n")
     IO.write( "#{tmp_dir}/isolinux/isolinux.cfg", text )
+
     system( "mkisofs -quiet -o #{outdir}/#{isoname} -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -J -R -V '#{hostname[0..31]}' #{tmp_dir}" )
+
     # clean up after ourselves
     FileUtils.rm_rf "#{tmp_dir}"
     FileUtils.chmod_R 0755, "#{outdir}/#{isoname}"

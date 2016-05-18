@@ -1,13 +1,16 @@
 class Kickstart < Mkvm
 
   def defaults 
-    return { :major => '6', :ksdevice => 'eth0' }
+    return { :major => '6', :minor => '8', :ksdevice => 'eth0' }
   end
 
   def optparse opts, options
     opts.separator 'Kickstart options:'
     opts.on( '-r', '--major VERSION', "Major OS release to use (#{options['major']})") do |x|
       options[:major] = x
+    end
+    opts.on( '-M', '--minor VERSION', "Minor OS release to use (#{options['minor']})") do |x|
+      options[:minor] = x
     end
     opts.on( '--url URL', "Kickstart URL (#{options[:url]})") do |x|
       options[:url] = x
