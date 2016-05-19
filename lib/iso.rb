@@ -33,7 +33,6 @@ class ISO < Mkvm
     kickstart = options[:ks_line]
 
     # grab the dirname of the isolinux path
-    srcdir = File.realdirpath("#{options[:srcdir]}/#{options[:major]}/")
     outdir = File.realdirpath(options[:outdir])
     FileUtils.mkdir_p outdir
 
@@ -52,6 +51,7 @@ class ISO < Mkvm
       end
     else
       # Copy the isolinux dir from local
+      srcdir = File.realdirpath("#{options[:srcdir]}/#{options[:major]}/")
       FileUtils.cp_r srcdir, "#{tmp_dir}/isolinux"
     end
 
