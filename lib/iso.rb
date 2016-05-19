@@ -31,6 +31,7 @@ class ISO < Mkvm
 
     hostname = options[:hostname]
     kickstart = options[:ks_line]
+    minor = options[:minor]
 
     # grab the dirname of the isolinux path
     outdir = File.realdirpath(options[:outdir])
@@ -55,10 +56,15 @@ class ISO < Mkvm
       FileUtils.cp_r srcdir, "#{tmp_dir}/isolinux"
     end
 
+    # Insert our kickstart options
     text = IO.read( "#{tmp_dir}/isolinux/isolinux.cfg" )
+    # RHEL6
     text.gsub!(/append initrd=initrd.img\n/, "append initrd=initrd.img #{kickstart}\n")
+    # RHEL7
+    text.gsub!(/append initrd=initrd.img inst.stage2=hd:LABEL=RHEL-7.#{minor}\\x20Server.x86_64 quiet\n/, "append initrd=initrd.img #{kickstart}\n")
     IO.write( "#{tmp_dir}/isolinux/isolinux.cfg", text )
 
+exit
     system( "mkisofs -quiet -o #{outdir}/#{isoname} -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -J -R -V '#{hostname[0..31]}' #{tmp_dir}" )
 
     # clean up after ourselves
