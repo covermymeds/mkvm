@@ -61,6 +61,8 @@ class ISO < Mkvm
     # RHEL6
     text.gsub!(/append initrd=initrd.img\n/, "append initrd=initrd.img #{kickstart}\n")
     # RHEL7
+    text.gsub!(/.*menu default.*/, '')
+    text.gsub!(/menu label \^Install Red Hat Enterprise Linux 7.#{minor}/, "menu label ^Install Red Hat Enterprise Linux 7.#{minor}\n  menu default")
     text.gsub!(/append initrd=initrd.img inst.stage2=hd:LABEL=RHEL-7.#{minor}\\x20Server.x86_64 quiet\n/, "append initrd=initrd.img #{kickstart}\n")
     IO.write( "#{tmp_dir}/isolinux/isolinux.cfg", text )
 
