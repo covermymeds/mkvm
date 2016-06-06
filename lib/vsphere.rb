@@ -342,7 +342,9 @@ The mapping looks something like:
 
     # Remove the cdrom
     cdrom = source_config.hardware.device.detect { |x| x.deviceInfo.label == "CD/DVD drive 1" }
-    clone_spec.config.deviceChange.push RbVmomi::VIM.VirtualDeviceConfigSpec(:operation=>:remove, :device=> cdrom)
+    if not cdrom.nil?
+      clone_spec.config.deviceChange.push RbVmomi::VIM.VirtualDeviceConfigSpec(:operation=>:remove, :device=> cdrom)
+    end
 
     # Extra config for customizing the VM on first boot.
     if not extra.to_s.empty?
