@@ -287,9 +287,9 @@ The mapping looks something like:
 
   def vc_affinity(dc, cluster, folder, host, domain)
     short = host.split('.')[0]
-    search_path = folder.name.eql?('vm') ? short.chop : "#{folder.name}/#{short.chop}"
+    search_path = folder.name.eql?('vm') ? "" : "#{folder.name}"
     if hostnum = short =~ /([2-9]$)/
-      Vm_drs.new(dc, cluster, search_path, domain, hostnum).create
+      Vm_drs.new(dc, cluster, search_path, short.chop, domain, hostnum).create
     end
   end
 

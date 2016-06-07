@@ -1,8 +1,9 @@
 class Vm_drs
 
-  def initialize(dc, cluster, pre, domain, hostnum)
+  def initialize(dc, cluster, search_path, pre, domain, hostnum)
     @dc=dc
     @cluster=cluster
+    @search_path = search_path
     @prefix=pre
     @domain=domain
     @rulename="anti_affinity_#{pre}X"
@@ -36,7 +37,7 @@ class Vm_drs
     delete if exists?
     for i in 1..@hostnum.to_i
       ["#{@prefix}#{i}", "#{@prefix}#{i}.#{@domain}"].each do |pair_name|
-        vm_pair = @dc.find_vm(pair_name) or next
+        vm_pair = @dc.find_vm("#{@search_path}/#{pair_name}") or next
         vm_list.push(vm_pair)
       end
     end
