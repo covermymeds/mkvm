@@ -277,14 +277,14 @@ The mapping looks something like:
     end
 
     # Setup anti-affinity rules if needed
-    vc_affinity(dc, cluster, options[:hostname], options[:domain])
+    vc_affinity(dc, cluster, vmFolder.name, options[:hostname], options[:domain])
 
   end
 
-  def vc_affinity(dc, cluster, host, domain)
+  def vc_affinity(dc, cluster, folder, host, domain)
     short = host.split('.')[0]
     if hostnum = short =~ /([2-9]$)/
-      Vm_drs.new(dc, cluster, short.chop, domain, hostnum).create
+      Vm_drs.new(dc, cluster, folder, short.chop, domain, hostnum).create
     end
   end
 
