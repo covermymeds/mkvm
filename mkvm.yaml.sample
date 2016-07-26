@@ -4,15 +4,10 @@
 :cluster: Production
 :insecure: true
 :ds_regex: encrypted
-:iso_store: ESX_ISO
 :netmask: 255.255.255.0
 :dns: 192.168.1.1,192.168.1.2
 :app_env: production
-:url: https://ks.example.com/rhel6.ks
-:dir: /usr/local/isolinux
 :domain: example.com
-:make_iso: true
-:upload_iso: true
 :make_vm: true
 :power_on: true
 :sat_url: https://satellite.example.com/rpc/api
