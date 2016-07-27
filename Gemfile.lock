@@ -1,0 +1,29 @@
+PATH
+  remote: .
+  specs:
+    mkvm (2.0.0)
+      rbvmomi (>= 1.8.2)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    builder (3.2.2)
+    mini_portile2 (2.1.0)
+    nokogiri (1.6.8)
+      mini_portile2 (~> 2.1.0)
+      pkg-config (~> 1.1.7)
+    pkg-config (1.1.7)
+    rbvmomi (1.8.2)
+      builder
+      nokogiri (>= 1.4.1)
+      trollop
+    trollop (2.1.2)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  mkvm!
+
+BUNDLED WITH
+   1.10.6

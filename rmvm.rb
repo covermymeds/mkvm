@@ -27,6 +27,7 @@ options = {
   :puppet_env => "Production",
   :ipam       => true,
   :shinken    => true,
+  :vagrant    => false,
 }
 
 # read config from mkvm.yaml, if it exists
@@ -76,14 +77,23 @@ optparse = OptionParser.new do|opts|
   opts.on("--no-satellite", "Do not remove from Satellite") do |x|
     options[:satellite] = false
   end
+  opts.on("--sat-script SAT_SCRIPT", "Full path to Satellite managment script") do |x|
+    options[:sat_script] = x
+  end
   opts.on("--sat-url URL", "Satellite server URL (#{options[:sat_url]})") do |x|
     options[:sat_url] = x
+  end
+  opts.on("--sat-org ORG", "Satellite organization") do |x|
+    options[:sat_org] = x
   end
   opts.on("--sat-username USERNAME", "Satellite user name (#{options[:sat_username] or options[:username]})") do |x|
     options[:sat_username] = x
   end
   opts.on("--sat-password PASSWORD", "Satellite password") do |x|
     options[:sat_password] = x
+  end
+  opts.on("--vagrant", "Is this a vagrant template VM?") do |x|
+    options[:vagrant] = true
   end
   opts.separator ""
 
@@ -224,43 +234,8 @@ end
 
 if options[:satellite]
   puts "Removing #{options[:fqdn]} from Satellite...."
-
-  # If we weren't given different satellite credentials, use vSphere credentials
-  options[:sat_username] = options[:sat_username] ? options[:sat_username] : options[:username]
-  options[:sat_password] = options[:sat_password] ? options[:sat_password] : options[:password]
-
-  begin
-    client = XMLRPC::Client.new2(options[:sat_url])
-
-    # Disable certificate verification
-    #   # TODO: Support for secure connections?
-    client.instance_variable_get("@http").verify_mode = OpenSSL::SSL::VERIFY_NONE
-
-    # Auth
-    key = client.call("auth.login", options[:sat_username], options[:sat_password])
-    
-    # Generate a unique list of systems. This requires the removal of the last_checkin element since 
-    # that is always unique.
-    systems = (client.call("system.search.hostname", key, options[:hostname]) +
-               client.call("system.search.hostname", key, options[:fqdn])).each {|system| system.delete('last_checkin')}.uniq
-
-    # Ensure that results were found from Satellite
-    if systems.any?
-      systems.each do |system|
-        # system.search.hostname will return non-exact matches. Make sure the system hostname is an exact match for
-        # either fqdn or short hostname
-        if [options[:fqdn], options[:hostname]].include? system["hostname"]
-          client.call("system.deleteSystem", key, system["id"])
-        end
-      end
-      puts "Server '#{options[:fqdn]}' deleted from Satellite."
-    else
-      puts "Unable to match '#{options[:fqdn]}' in Satellite. Manual deletion required."
-      exit_code += 1
-    end
-
-  rescue Exception => msg
-    puts "Error deleting system from Satellite: #{msg}"
+  vagrant_options = options[:vagrant] ? "--vagrant --datacenter miranova --wait" : ""
+  unless system("#{options[:sat_script]} -u #{options[:sat_user]} -p #{options[:sat_password]} --url #{options[:sat_url]} --organization #{options[:sat_org]} delete #{vagrant_options} #{options[:fqdn]}")
     exit_code += 1
   end
 end
