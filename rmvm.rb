@@ -234,7 +234,7 @@ end
 
 if options[:satellite]
   puts "Removing #{options[:fqdn]} from Satellite...."
-  vagrant_options = options[:vagrant] ? "--vagrant --datacenter miranova --wait" : ""
+  vagrant_options = options[:vagrant] ? options[:sat_vagrant_args] : ""
   begin
     if output = `#{options[:sat_script]} -u #{options[:sat_username]} -p #{options[:sat_password]} --url #{options[:sat_url]} --organization #{options[:sat_org]} delete #{vagrant_options} #{options[:fqdn]}`
       puts output
