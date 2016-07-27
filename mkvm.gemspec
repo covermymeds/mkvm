@@ -13,10 +13,10 @@ Gem::Specification.new do |spec|
   spec.homepage      = "https://github.com/covermymeds/mkvm"
   spec.license       = "MIT"
 
-  spec.files         = Dir.glob("{lib,plugins,isolinux}/**/*") + %w(README.md mkvm.rb rmvm.rb)
+  spec.files         = Dir.glob("{lib,plugins}/**/*") + %w(README.md mkvm.rb rmvm.rb)
   spec.bindir        = '.'
   spec.executables   = ["mkvm.rb", "rmvm.rb", "rename.rb"]
-  spec.require_paths = ["lib", "plugins", "isolinux", "iso"]
+  spec.require_paths = ["lib", "plugins" ]
 
   spec.add_dependency 'rbvmomi', '>= 1.8.2'
 
