@@ -235,7 +235,15 @@ end
 if options[:satellite]
   puts "Removing #{options[:fqdn]} from Satellite...."
   vagrant_options = options[:vagrant] ? "--vagrant --datacenter miranova --wait" : ""
-  unless system("#{options[:sat_script]} -u #{options[:sat_user]} -p #{options[:sat_password]} --url #{options[:sat_url]} --organization #{options[:sat_org]} delete #{vagrant_options} #{options[:fqdn]}")
+  begin
+    if output = `#{options[:sat_script]} -u #{options[:sat_username]} -p #{options[:sat_password]} --url #{options[:sat_url]} --organization #{options[:sat_org]} delete #{vagrant_options} #{options[:fqdn]}`
+      puts output
+      exit_code += 1
+    else
+      puts output
+    end
+  rescue
+    puts "Something went wrong with the satellite removal command"
     exit_code += 1
   end
 end
