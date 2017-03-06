@@ -9,16 +9,12 @@ class IPAM
     end
 
     def login!(username, password)
-        uri = "#{endpoint}/user/"
-        uri = URI.escape(uri)
-        uri = URI.parse(uri)
-        pp uri
-        http = Net::HTTP.new(uri.host, uri.port)
+        u = self.uri("#{endpoint}/user/")
+        http = Net::HTTP.new(u.host, u.port)
         http.use_ssl = true
-        request = Net::HTTP::Post.new(uri.request_uri)
+        request = Net::HTTP::Post.new(u.request_uri)
         request.basic_auth username, password
         response = http.request(request)
-        pp response.body
         @token = JSON.parse(response.body, :symbolize_names => true)[:data][:token]
     end
 
@@ -34,13 +30,18 @@ class IPAM
     end
 
     def search_hostname(hostname)
-        uri = "#{endpoint}/addresses/search_hostname/#{hostname}/"
-        uri = URI.escape(uri)
-        uri = URI.parse(uri)
-        http = Net::HTTP.new(uri.host, uri.port)
-        http.use_ssl = true
-        request = Net::HTTP::Get.new(uri.request_uri)
-        request['token'] = @token
-        return http.request(request)
+        get(uri("#{endpoint}/addresses/search_hostname/#{hostname}/"))
+    end
+
+    def get(uri)
+        Net::HTTP.start(uri.host, uri.port, :use_ssl => true) do |http|
+            request = Net::HTTP::Get.new uri
+            request['token'] = @token
+            http.request request
+        end
+    end
+
+    def uri(address)
+        URI.parse(URI.escape(address))
     end
 end
