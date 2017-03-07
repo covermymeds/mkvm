@@ -17,6 +17,9 @@ require "rubygems"
 require "yaml"
 require "json"
 
+require_relative "lib/ipam"
+require_relative "lib/jira"
+
 # establish a couple of sane default values
 options = {
   :username   => ENV["USER"],
@@ -157,6 +160,20 @@ optparse = OptionParser.new do|opts|
   end
   opts.on("--shinken-password PASSWORD", "Shinken password") do |x|
     options[:shinken_password] = x
+  end
+
+  opts.separator "Jira options:"
+  opts.on("--jira-username USERNAME", "Username for Jira (#{options[:jira_username]})") do |x|
+    options[:jira_username] = x
+  end
+  opts.on("--jira-password PASSWORD", "Jira password") do |x|
+    options[:jira_password] = x
+  end
+  opts.on("--jira-url URL", "Jira API endpoint (#{options[:jira_url]})") do |x|
+    options[:jira_url] = x
+  end
+  opts.on("--jira-project PROJECT", "Jira Project (#{options[:jira_project]})") do |x|
+    options[:jira_project] = x
   end
   opts.separator ""
 
@@ -369,9 +386,12 @@ end
 
 if options[:ipam]
   ipam = IPAM.new(options[:add_uri].gsub(/APIAPP/, {"APIAPP" => options[:apiapp]}))
-  ipam.login!
-  jira = Jira.new
-  jira.open_firewall_request(ipam.ips)
+  #ipam.token = options[:apitoken]
+  ipam.login!(options[:username], options[:password])
+
+  jira = Jira.new(options[:jira_url])
+  jira.login!(options[:jira_username], options[:jira_password])
+  jira.open_firewall_request(options[:jira_project], ipam.ips(options[:fqdn]))
 end
 
 if options[:ipam]

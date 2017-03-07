@@ -17,7 +17,12 @@ class Http
     endpoint.request(request)
   end
 
-
-  def uri(address)
+  def get(path)
+    Net::HTTP.start(@url.host, @url.port, :use_ssl => true) do |http|
+      request = Net::HTTP::Get.new(URI.join(@url, path))
+      request['token'] = @token
+      http.request request
+    end
   end
+
 end
