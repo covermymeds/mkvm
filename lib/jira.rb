@@ -1,4 +1,5 @@
 require 'pp'
+require 'json'
 
 require_relative 'http'
 
@@ -11,6 +12,7 @@ class Jira
   def login!(username, password)
     @username = username
     @password = password
+    nil
   end
 
   def create_issue(body)
