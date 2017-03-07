@@ -368,6 +368,13 @@ if options[:puppet]
 end
 
 if options[:ipam]
+  ipam = IPAM.new(options[:add_uri].gsub(/APIAPP/, {"APIAPP" => options[:apiapp]}))
+  ipam.login!
+  jira = Jira.new
+  jira.open_firewall_request(ipam.ips)
+end
+
+if options[:ipam]
   puts "Removing #{options[:fqdn]} from IPAM...."
 
   # Send delete request to phpipam system
