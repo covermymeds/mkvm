@@ -1,6 +1,7 @@
 require 'json'
-require 'net/http'
 require "pp"
+
+require_relative 'http'
 
 class IPAM
   def initialize(endpoint)
@@ -8,12 +9,10 @@ class IPAM
   end
 
   def login!(username, password)
-    u = self.uri("#{endpoint}/user/")
-    http = Net::HTTP.new(u.host, u.port)
-    http.use_ssl = true
-    request = Net::HTTP::Post.new(u.request_uri)
-    request.basic_auth username, password
-    response = http.request(request)
+    http = Http.new("#{endpoint}/user/")
+    response = http.post do |request|
+      request.basic_auth username, password
+    end
     @token = JSON.parse(response.body, :symbolize_names => true)[:data][:token]
   end
 
@@ -40,7 +39,4 @@ class IPAM
     end
   end
 
-  def uri(address)
-    URI.parse(URI.escape(address))
-  end
 end
