@@ -10,19 +10,33 @@ class IPAM
   end
 
   def login!(username, password)
-    http = Http.new(endpoint)
-    response = http.post("user/") do |request|
-      request.basic_auth username, password
+    begin
+      http = Http.new(endpoint)
+      response = http.post("user/") do |request|
+        request.basic_auth username, password
+      end
+      result = JSON.parse(response.body, :symbolize_names => true)
+      pp result
+      raise result[:message] unless result[:code] == 200
+      @token = result[:data][:token]
+    rescue Exception => e
+      puts "IPAM#login! #{e.message}"
     end
-    @token = JSON.parse(response.body, :symbolize_names => true)[:data][:token]
   end
 
   def ips(hostname)
-    response = search_hostname(hostname)
-    JSON.parse(response.body, :symbolize_names => true)[:data].map { |d| d[:ip] }
+    begin
+      response = search_hostname(hostname)
+      search_result = JSON.parse(response.body, :symbolize_names => true)
+      raise search_result[:message] unless search_result[:code] == 200
+      data = search_result[:data] || []
+      pp data
+      data.map { |d| d[:ip] }
+    rescue Exception => e
+      puts "IPAM#ips #{e.message}"
+      raise
+    end
   end
-
-  private
 
   def endpoint
     @endpoint
@@ -30,7 +44,9 @@ class IPAM
 
   def search_hostname(hostname)
     http = Http.new(endpoint)
-    http.get("addresses/search_hostname/#{hostname}/")
+    http.get("addresses/search_hostname/#{hostname}/") do |request|
+      request['token'] = @token
+    end
   end
 
 end

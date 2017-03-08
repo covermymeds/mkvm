@@ -20,7 +20,7 @@ class Http
   def get(path)
     Net::HTTP.start(@url.host, @url.port, :use_ssl => true) do |http|
       request = Net::HTTP::Get.new(URI.join(@url, path))
-      request['token'] = @token
+      yield request if block_given?
       http.request request
     end
   end
