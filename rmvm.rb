@@ -386,7 +386,6 @@ end
 
 if options[:ipam]
   ipam = IPAM.new(options[:add_uri].gsub(/APIAPP/, {"APIAPP" => options[:apiapp]}))
-  #ipam.token = options[:apitoken]
   ipam.login!(options[:username], options[:password])
 
   jira = Jira.new(options[:jira_url])

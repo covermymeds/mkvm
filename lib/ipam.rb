@@ -16,7 +16,6 @@ class IPAM
         request.basic_auth username, password
       end
       result = JSON.parse(response.body, :symbolize_names => true)
-      pp result
       raise result[:message] unless result[:code] == 200
       @token = result[:data][:token]
     rescue Exception => e
@@ -30,7 +29,6 @@ class IPAM
       search_result = JSON.parse(response.body, :symbolize_names => true)
       raise search_result[:message] unless search_result[:code] == 200
       data = search_result[:data] || []
-      pp data
       data.map { |d| d[:ip] }
     rescue Exception => e
       puts "IPAM#ips #{e.message}"

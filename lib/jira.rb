@@ -5,7 +5,7 @@ require_relative 'http'
 
 class Jira
   def initialize(endpoint)
-    @endpoint = endpoint
+    @endpoint = "#{endpoint}/rest/api/2/"
     @http = Http.new(@endpoint)
   end
 
@@ -16,12 +16,19 @@ class Jira
   end
 
   def create_issue(body)
-    response = @http.post('issue/') do |request|
-      request.body = body.to_json
-      request.content_type = 'application/json'
-      request.basic_auth @username, @password
+    begin
+      response = @http.post('issue/') do |request|
+        request.body = body.to_json
+        request.content_type = 'application/json'
+        request.basic_auth @username, @password
+      end
+      response_body = JSON.parse(response.body, :symbolize_names => true)
+      raise "#{response.code}: #{response.message}" unless response.code == '201'
+      response_body
+    rescue Exception => e
+      puts "Jira#create_issue #{e.message}"
+      raise
     end
-    response
   end
 
   def open_firewall_request(project, ips, issue_type="Service Request")
