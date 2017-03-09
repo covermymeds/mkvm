@@ -172,12 +172,6 @@ optparse = OptionParser.new do|opts|
   opts.on("--jira-url URL", "Jira API endpoint (#{options[:jira_url]})") do |x|
     options[:jira_url] = x
   end
-  opts.on("--jira-project PROJECT", "Jira Project (#{options[:jira_project]})") do |x|
-    options[:jira_project] = x
-  end
-  opts.on("--jira-issue-type TYPE", "Jira Issue Type (#{options[:jira_issue_type]})") do |x|
-    options[:jira_issue_type] = x
-  end
   opts.separator ""
 
   opts.separator "General options:"
@@ -393,7 +387,7 @@ if options[:ipam]
 
   jira = Jira.new(options[:jira_url])
   jira.login!(options[:jira_username], options[:jira_password])
-  jira.open_firewall_request(options[:jira_project], ipam.ips(options[:fqdn]), options[:jira_issue_type])
+  jira.open_firewall_request('STSO', ipam.ips(options[:fqdn]), 'Firewall Request')
 end
 
 if options[:ipam]
