@@ -172,6 +172,12 @@ optparse = OptionParser.new do|opts|
   opts.on("--jira-url URL", "Jira API endpoint (#{options[:jira_url]})") do |x|
     options[:jira_url] = x
   end
+  opts.on("--jira-fw-project PROJECT", "Override STSO with PROJECT in ticket") do |x|
+    options[:jira_firewall_project] = x
+  end
+  opts.on("--jira-fw-issue ISSUE_TYPE", "Overide 'Firewall Request' with ISSUE_TYPE in ticket") do |x|
+    options[:jira_firewall_issue] = x
+  end
   opts.separator ""
 
   opts.separator "General options:"
@@ -382,12 +388,14 @@ if options[:puppet]
 end
 
 if options[:ipam]
+  puts "Opening Firewall request to remove host"
   ipam = IPAM.new(options[:add_uri].gsub(/APIAPP/, {"APIAPP" => options[:apiapp]}))
-  ipam.login!(options[:username], options[:password])
+  username = options[:username].gsub(/^.+\\(.*)/, '\1')
+  ipam.login!(username, options[:password])
 
   jira = Jira.new(options[:jira_url])
   jira.login!(options[:jira_username], options[:jira_password])
-  jira.open_firewall_request('STSO', ipam.ips(options[:fqdn]), 'Firewall Request')
+  jira.open_firewall_request(options[:jira_firewall_project], ipam.ips(options[:fqdn]), options[:jira_firewall_issue])
 end
 
 if options[:ipam]
