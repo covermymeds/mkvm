@@ -395,6 +395,8 @@ if options[:ipam]
 
   jira = Jira.new(options[:jira_url])
   jira.login!(options[:jira_username], options[:jira_password])
+  project = options[:jira_firewall_project] || "STSO"
+  issue_type = options[:jira_firewall_issue] || "Firewall Request"
   jira.open_firewall_request(options[:jira_firewall_project], ipam.ips(options[:fqdn]), options[:jira_firewall_issue])
 end
 
