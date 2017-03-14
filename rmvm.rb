@@ -17,6 +17,9 @@ require "rubygems"
 require "yaml"
 require "json"
 
+require_relative "lib/ipam"
+require_relative "lib/jira"
+
 # establish a couple of sane default values
 options = {
   :username   => ENV["USER"],
@@ -157,6 +160,23 @@ optparse = OptionParser.new do|opts|
   end
   opts.on("--shinken-password PASSWORD", "Shinken password") do |x|
     options[:shinken_password] = x
+  end
+
+  opts.separator "Jira options:"
+  opts.on("--jira-username USERNAME", "Username for Jira (#{options[:jira_username]})") do |x|
+    options[:jira_username] = x
+  end
+  opts.on("--jira-password PASSWORD", "Jira password") do |x|
+    options[:jira_password] = x
+  end
+  opts.on("--jira-url URL", "Jira API endpoint (#{options[:jira_url]})") do |x|
+    options[:jira_url] = x
+  end
+  opts.on("--jira-fw-project PROJECT", "Override STSO with PROJECT in ticket") do |x|
+    options[:jira_firewall_project] = x
+  end
+  opts.on("--jira-fw-issue ISSUE_TYPE", "Overide 'Firewall Request' with ISSUE_TYPE in ticket") do |x|
+    options[:jira_firewall_issue] = x
   end
   opts.separator ""
 
@@ -365,6 +385,19 @@ if options[:puppet]
     puts "Some or all of the Puppet removal failed."
     exit_code += 1
   end
+end
+
+if options[:ipam]
+  puts "Opening Firewall request to remove host"
+  ipam = IPAM.new(options[:add_uri].gsub(/APIAPP/, {"APIAPP" => options[:apiapp]}))
+  username = options[:username].gsub(/^.+\\(.*)/, '\1')
+  ipam.login!(username, options[:password])
+
+  jira = Jira.new(options[:jira_url])
+  jira.login!(options[:jira_username], options[:jira_password])
+  project = options[:jira_firewall_project] || "STSO"
+  issue_type = options[:jira_firewall_issue] || "Firewall Request"
+  jira.open_firewall_request(options[:jira_firewall_project], ipam.ips(options[:fqdn]), options[:jira_firewall_issue])
 end
 
 if options[:ipam]
