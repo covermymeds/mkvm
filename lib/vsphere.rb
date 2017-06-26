@@ -136,9 +136,13 @@ class Vsphere < Mkvm
 
     debug( 'INFO', "CPU: #{options[:cpu]}" ) if options[:debug]
     debug( 'INFO', "Mem: #{options[:memory]} MiB" ) if options[:debug]
+
+    invalid_mounts = [ '/', '/boot', '/tmp', '/opt', '/var' ]
     if options[:disks]
       options[:disks].each do |disk|
+        abort "#{disk[:path]} is an existing mount" if invalid_mounts.include? disk[:path]
         debug( 'INFO', "disk: #{disk[:size]} KiB with path #{disk[:path]}" )
+        invalid_mounts << disk[:path]
       end
     end
 
