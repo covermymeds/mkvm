@@ -291,6 +291,9 @@ The mapping looks something like:
       }
     end
 
+    # reset boot order to only boot from HD
+    clone_spec.config.extraConfig << { :key => 'bios.bootDeviceClasses', :value => 'allow:hd' }
+
     return clone_spec
   end
 
