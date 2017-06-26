@@ -60,8 +60,15 @@ class Vsphere < Mkvm
       opts.on( '--memory RAM', 'Memory in GB' ) do |x|
         options[:memory] = x
       end
-      opts.on( '--sdb [10G{,/pub}]', 'Add /dev/sdb. Size and mount point optional.' ) do |x|
-        options[:raw_sdb] = x || '10G,/pub'
+      opts.on( '--disk [10G{,/pub}]', 'Add another disk. Size and mount point optional. Can be used more than once.' ) do |x|
+        raw_disk = x || '10G,/pub'
+        list_disk = raw_disk.split ','
+
+        # create the array if it doesn't exist already
+        options[:disks] ||= []
+
+        # append to it
+        options[:disks] << { size: parse_size(list_disk[0]), path: list_disk[1] }
       end
       opts.on( '--sourcevm SOURCEVM', 'Source VM from which to clone new VM.' ) do |x|
         options[:source_vm] = x 
@@ -127,16 +134,13 @@ class Vsphere < Mkvm
     # Mebibytes for RAM and Kebibytes for disks
     options[:memory] = parse_size(options[:memory], 'M')
 
-    if options[:raw_sdb]
-      sdb_size, *sdb_path = options[:raw_sdb].split(/,/)
-      options[:sdb] = parse_size(sdb_size, 'K')
-      options[:sdb_path] = sdb_path[0]
-    end
-
     debug( 'INFO', "CPU: #{options[:cpu]}" ) if options[:debug]
     debug( 'INFO', "Mem: #{options[:memory]} MiB" ) if options[:debug]
-    debug( 'INFO', "sdb: #{options[:sdb]} KiB" ) if options[:sdb] and options[:debug]
-    debug( 'INFO', "sdb_path: #{options[:sdb_path]}" ) if options[:sdb_path] and options[:debug]
+    if options[:disks]
+      options[:disks].each do |disk|
+        debug( 'INFO', "disk: #{disk[:size]} KiB with path #{disk[:path]}" )
+      end
+    end
 
     if ! options[:network]
       abort "To properly configure the network interface you need a map 
@@ -186,19 +190,13 @@ The mapping looks something like:
       vmFolder = dc.vmFolder
     end
 
-    # Second disk options
-    sdb_size = false
-    sdb_path = ''
-    if options[:sdb]
-      sdb_size = options[:sdb] 
-      sdb_path = options[:sdb_path]
-    end
+    options[:disks] || options[:disks] = []
 
     # Generate the clone spec
     source_vm = dc.find_vm("#{options[:source_vm]}") or abort "Failed to find source vm: #{options[:source_vm]}"
     clone_spec = generate_clone_spec(source_vm.config, dc, rp, options[:cpu], options[:memory],
                                      ds_name, options[:network][options[:subnet]]['name'],
-                                     cluster, sdb_size, sdb_path, options[:extra])
+                                     cluster, options[:disks], options[:extra])
 
     clone_spec.customization = ip_settings(options[:ip], options[:gateway], options[:netmask], options[:domain], options[:dns], options[:hostname])
 
@@ -248,7 +246,7 @@ The mapping looks something like:
   end
 
    # Populate the VM clone specification
-  def generate_clone_spec(source_config, dc, resource_pool, cpus, memory, ds_name, network, cluster, sdb_size, sdb_path, extra)
+  def generate_clone_spec(source_config, dc, resource_pool, cpus, memory, ds_name, network, cluster, disks, extra)
 
     datastore = dc.datastore.find { |ds| ds.name == ds_name }
     clone_spec = RbVmomi::VIM.VirtualMachineCloneSpec(:location => RbVmomi::VIM.VirtualMachineRelocateSpec(:pool => resource_pool, :datastore => datastore),
@@ -264,18 +262,30 @@ The mapping looks something like:
     # CPU and RAM
     clone_spec.config.numCPUs  = Integer(cpus)
     clone_spec.config.memoryMB = Integer(memory)
-    
-    # Second disk support
+
+    # Multiple disk support
     controllerkey = 100
-    if sdb_size
+    # start on sdb
+    disk_dev = 'sdb'
+    disk_index = 1
+    disks.each do |disk|
+      # retrieve the SCSI device
       source_config.hardware.device.each { |device|
         if device.deviceInfo.summary =~ /SCSI/
           controllerkey = device.key
         end
       }
-      disk_spec = disk_config(ds_name, controllerkey, sdb_size, 1)
+      disk_spec = disk_config(ds_name, controllerkey, disk[:size], disk_index)
       clone_spec.config.deviceChange.push disk_spec
-      clone_spec.config.extraConfig << { :key => 'guestinfo.sdb_path', :value => sdb_path }
+
+      # add path to guestinfo if disk path is not 'none'
+      if disk['path'] != 'none'
+        clone_spec.config.extraConfig << { :key => "guestinfo.#{disk_dev}_path", :value => disk[:path] }
+      end
+
+      # increment disk dev and index
+      disk_dev = disk_dev.next
+      disk_index += 1
     end
 
     # Remove the cdrom
