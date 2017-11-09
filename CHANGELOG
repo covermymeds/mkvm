@@ -1,3 +1,6 @@
+2017-11-09
+* MAJOR RELEASE
+* Add support for multiple disks outside of sdb
 2016-07-25
 * MAJOR RELEASE
 * Remove support for build/upload/kickstart from ISO
