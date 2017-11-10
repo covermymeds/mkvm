@@ -283,7 +283,7 @@ The mapping looks something like:
       clone_spec.config.deviceChange.push disk_spec
 
       # add path to guestinfo if disk path is not nil
-      if disk['path'] != nil
+      if not disk['path'].nil?
         clone_spec.config.extraConfig << { :key => "guestinfo.#{disk_dev}_path", :value => disk[:path] }
       end
 
