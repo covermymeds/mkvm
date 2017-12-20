@@ -57,7 +57,10 @@ class Vsphere < Mkvm
       opts.on( '--cpu CPU', 'Number of cpus' ) do |x|
         options[:cpu] = x
       end
-      opts.on( '--memory RAM', 'Memory in GB' ) do |x|
+      opts.on( '--virthost', 'Host is used for nested virtualization.' ) do
++       options[:virt] = true
++     end
+      ohpts.on( '--memory RAM', 'Memory in GB' ) do |x|
         options[:memory] = x
       end
       opts.on( '--disk [10G{,/pub}]', 'Add another disk. Size and mount point optional. Can be used more than once.' ) do |x|
@@ -255,7 +258,7 @@ The mapping looks something like:
     datastore = dc.datastore.find { |ds| ds.name == ds_name }
     clone_spec = RbVmomi::VIM.VirtualMachineCloneSpec(:location => RbVmomi::VIM.VirtualMachineRelocateSpec(:pool => resource_pool, :datastore => datastore),
                                                       :template => false, :powerOn => true)
-    clone_spec.config = RbVmomi::VIM.VirtualMachineConfigSpec(:deviceChange => Array.new, :extraConfig => Array.new)
+    clone_spec.config = RbVmomi::VIM.VirtualMachineConfigSpec(:deviceChange => Array.new, :extraConfig => Array.new, :nestedHVEnabled => options[:virt])
 
     # Network device
     card = source_config.hardware.device.find { |d| d.deviceInfo.label == "Network adapter 1" }
