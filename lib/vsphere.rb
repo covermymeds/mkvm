@@ -15,7 +15,7 @@ class Vsphere < Mkvm
       :username => ENV['USER'],
       :insecure => true,
       :make_vm => true,
-    } 
+    }
   end
 
   def optparse opts, options
@@ -74,7 +74,7 @@ class Vsphere < Mkvm
         options[:disks] << { size: parse_size(list_disk[0]), path: list_disk[1] }
       end
       opts.on( '--sourcevm SOURCEVM', 'Source VM from which to clone new VM.' ) do |x|
-        options[:source_vm] = x 
+        options[:source_vm] = x
       end
       opts.on( '-i', '--ip ADDRESS', 'IP address') do |x|
         options[:ip] = x
@@ -150,10 +150,10 @@ class Vsphere < Mkvm
     end
 
     if ! options[:network]
-      abort "To properly configure the network interface you need a map 
+      abort "To properly configure the network interface you need a map
 in ~/.mkvm.yaml for :network. This structure maps subnet to dvportgroup name.
-The mapping looks something like: 
-    
+The mapping looks something like:
+
 :network:
   '192.168.20.0':
     name: 'Production'
