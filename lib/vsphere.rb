@@ -58,8 +58,8 @@ class Vsphere < Mkvm
         options[:cpu] = x
       end
       opts.on( '--virthost', 'Host is used for nested virtualization.' ) do
-+       options[:virt] = true
-+     end
+        options[:virt] = true
+      end
       opts.on( '--memory RAM', 'Memory in GB' ) do |x|
         options[:memory] = x
       end
@@ -203,7 +203,7 @@ The mapping looks something like:
     source_vm = dc.find_vm("#{options[:source_vm]}") or abort "Failed to find source vm: #{options[:source_vm]}"
     clone_spec = generate_clone_spec(source_vm.config, dc, rp, options[:cpu], options[:memory],
                                      ds_name, options[:network][options[:subnet]]['name'],
-                                     cluster, options[:disks], options[:extra])
+                                     cluster, options[:disks], options[:extra], options[:virt])
 
     clone_spec.customization = ip_settings(options[:ip], options[:gateway], options[:netmask], options[:domain], options[:dns], options[:hostname])
 
@@ -253,12 +253,12 @@ The mapping looks something like:
   end
 
    # Populate the VM clone specification
-  def generate_clone_spec(source_config, dc, resource_pool, cpus, memory, ds_name, network, cluster, disks, extra)
+  def generate_clone_spec(source_config, dc, resource_pool, cpus, memory, ds_name, network, cluster, disks, extra, virt)
 
     datastore = dc.datastore.find { |ds| ds.name == ds_name }
     clone_spec = RbVmomi::VIM.VirtualMachineCloneSpec(:location => RbVmomi::VIM.VirtualMachineRelocateSpec(:pool => resource_pool, :datastore => datastore),
                                                       :template => false, :powerOn => true)
-    clone_spec.config = RbVmomi::VIM.VirtualMachineConfigSpec(:deviceChange => Array.new, :extraConfig => Array.new, :nestedHVEnabled => options[:virt])
+    clone_spec.config = RbVmomi::VIM.VirtualMachineConfigSpec(:deviceChange => Array.new, :extraConfig => Array.new)
 
     # Network device
     card = source_config.hardware.device.find { |d| d.deviceInfo.label == "Network adapter 1" }
@@ -269,7 +269,7 @@ The mapping looks something like:
     # CPU and RAM
     clone_spec.config.numCPUs  = Integer(cpus)
     clone_spec.config.memoryMB = Integer(memory)
-
+    clone_spec.config.nestedHVEnabled = !!virt
     # Multiple disk support
     controllerkey = 100
     # start on sdb
