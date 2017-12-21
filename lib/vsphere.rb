@@ -60,7 +60,7 @@ class Vsphere < Mkvm
       opts.on( '--virthost', 'Host is used for nested virtualization.' ) do
 +       options[:virt] = true
 +     end
-      ohpts.on( '--memory RAM', 'Memory in GB' ) do |x|
+      opts.on( '--memory RAM', 'Memory in GB' ) do |x|
         options[:memory] = x
       end
       opts.on( '--disk [10G{,/pub}]', 'Add another disk. Size and mount point optional. Can be used more than once.' ) do |x|
