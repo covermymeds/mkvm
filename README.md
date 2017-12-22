@@ -45,6 +45,7 @@ VSphere options:
         --[no-]insecure              Do not validate vSphere SSL certificate (true)
         --datastore DATASTORE        vSphere datastore to use ()
         --dsregex DATASTORE_REGEX    vSphere datastore regex to use ()
+        --virthost                   Enable nested virtualization
 automated IPAM options:
     -s, --subnet SUBNET              subnet in dotted quad with subnet mask, ex: 10.10.2.0/22
         --auto-uri uri               URI full path for auto IP system ex: http://blah/api/blah.php()
