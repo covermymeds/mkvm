@@ -15,7 +15,7 @@ class Vsphere < Mkvm
       :username => ENV['USER'],
       :insecure => true,
       :make_vm => true,
-    } 
+    }
   end
 
   def optparse opts, options
@@ -57,6 +57,9 @@ class Vsphere < Mkvm
       opts.on( '--cpu CPU', 'Number of cpus' ) do |x|
         options[:cpu] = x
       end
+      opts.on( '--virthost', 'Host is used for nested virtualization.' ) do
+        options[:virt] = true
+      end
       opts.on( '--memory RAM', 'Memory in GB' ) do |x|
         options[:memory] = x
       end
@@ -71,7 +74,7 @@ class Vsphere < Mkvm
         options[:disks] << { size: parse_size(list_disk[0]), path: list_disk[1] }
       end
       opts.on( '--sourcevm SOURCEVM', 'Source VM from which to clone new VM.' ) do |x|
-        options[:source_vm] = x 
+        options[:source_vm] = x
       end
       opts.on( '-i', '--ip ADDRESS', 'IP address') do |x|
         options[:ip] = x
@@ -147,10 +150,10 @@ class Vsphere < Mkvm
     end
 
     if ! options[:network]
-      abort "To properly configure the network interface you need a map 
+      abort "To properly configure the network interface you need a map
 in ~/.mkvm.yaml for :network. This structure maps subnet to dvportgroup name.
-The mapping looks something like: 
-    
+The mapping looks something like:
+
 :network:
   '192.168.20.0':
     name: 'Production'
@@ -200,7 +203,7 @@ The mapping looks something like:
     source_vm = dc.find_vm("#{options[:source_vm]}") or abort "Failed to find source vm: #{options[:source_vm]}"
     clone_spec = generate_clone_spec(source_vm.config, dc, rp, options[:cpu], options[:memory],
                                      ds_name, options[:network][options[:subnet]]['name'],
-                                     cluster, options[:disks], options[:extra])
+                                     cluster, options[:disks], options[:extra], options[:virt])
 
     clone_spec.customization = ip_settings(options[:ip], options[:gateway], options[:netmask], options[:domain], options[:dns], options[:hostname])
 
@@ -250,7 +253,7 @@ The mapping looks something like:
   end
 
    # Populate the VM clone specification
-  def generate_clone_spec(source_config, dc, resource_pool, cpus, memory, ds_name, network, cluster, disks, extra)
+  def generate_clone_spec(source_config, dc, resource_pool, cpus, memory, ds_name, network, cluster, disks, extra, virt)
 
     datastore = dc.datastore.find { |ds| ds.name == ds_name }
     clone_spec = RbVmomi::VIM.VirtualMachineCloneSpec(:location => RbVmomi::VIM.VirtualMachineRelocateSpec(:pool => resource_pool, :datastore => datastore),
@@ -266,7 +269,7 @@ The mapping looks something like:
     # CPU and RAM
     clone_spec.config.numCPUs  = Integer(cpus)
     clone_spec.config.memoryMB = Integer(memory)
-
+    clone_spec.config.nestedHVEnabled = !!virt
     # Multiple disk support
     controllerkey = 100
     # start on sdb
