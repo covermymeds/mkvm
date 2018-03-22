@@ -91,6 +91,9 @@ class Vsphere < Mkvm
       opts.on( '--domain DOMAIN', "DNS domain to append to hostname (#{options[:domain]})") do |x|
         options[:domain] = x
       end
+      opts.on( '--annotation ANNOTATION', "Annotation for VM (#{options[:annotation]})") do |x|
+        options[:annotation] = x
+      end
   end
 
   # this helper method converts unit sizes from human readable to machine usable
@@ -203,7 +206,7 @@ The mapping looks something like:
     source_vm = dc.find_vm("#{options[:source_vm]}") or abort "Failed to find source vm: #{options[:source_vm]}"
     clone_spec = generate_clone_spec(source_vm.config, dc, rp, options[:cpu], options[:memory],
                                      ds_name, options[:network][options[:subnet]]['name'],
-                                     cluster, options[:disks], options[:extra], options[:virt])
+                                     cluster, options[:disks], options[:extra], options[:virt], options[:annotation])
 
     clone_spec.customization = ip_settings(options[:ip], options[:gateway], options[:netmask], options[:domain], options[:dns], options[:hostname])
 
@@ -253,12 +256,12 @@ The mapping looks something like:
   end
 
    # Populate the VM clone specification
-  def generate_clone_spec(source_config, dc, resource_pool, cpus, memory, ds_name, network, cluster, disks, extra, virt)
+  def generate_clone_spec(source_config, dc, resource_pool, cpus, memory, ds_name, network, cluster, disks, extra, virt, annotation)
 
     datastore = dc.datastore.find { |ds| ds.name == ds_name }
     clone_spec = RbVmomi::VIM.VirtualMachineCloneSpec(:location => RbVmomi::VIM.VirtualMachineRelocateSpec(:pool => resource_pool, :datastore => datastore),
                                                       :template => false, :powerOn => true)
-    clone_spec.config = RbVmomi::VIM.VirtualMachineConfigSpec(:deviceChange => Array.new, :extraConfig => Array.new)
+    clone_spec.config = RbVmomi::VIM.VirtualMachineConfigSpec(:deviceChange => Array.new, :extraConfig => Array.new, :annotation => annotation)
 
     # Network device
     card = source_config.hardware.device.find { |d| d.deviceInfo.label == "Network adapter 1" }
