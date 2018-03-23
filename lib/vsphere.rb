@@ -261,7 +261,7 @@ The mapping looks something like:
     datastore = dc.datastore.find { |ds| ds.name == ds_name }
     clone_spec = RbVmomi::VIM.VirtualMachineCloneSpec(:location => RbVmomi::VIM.VirtualMachineRelocateSpec(:pool => resource_pool, :datastore => datastore),
                                                       :template => false, :powerOn => true)
-    clone_spec.config = RbVmomi::VIM.VirtualMachineConfigSpec(:deviceChange => Array.new, :extraConfig => Array.new, :annotation => annotation)
+    clone_spec.config = RbVmomi::VIM.VirtualMachineConfigSpec(:deviceChange => Array.new, :extraConfig => Array.new)
 
     # Network device
     card = source_config.hardware.device.find { |d| d.deviceInfo.label == "Network adapter 1" }
@@ -273,6 +273,10 @@ The mapping looks something like:
     clone_spec.config.numCPUs  = Integer(cpus)
     clone_spec.config.memoryMB = Integer(memory)
     clone_spec.config.nestedHVEnabled = !!virt
+
+    #Annotation
+    clone_spec.config.annotation = annotation
+
     # Multiple disk support
     controllerkey = 100
     # start on sdb
