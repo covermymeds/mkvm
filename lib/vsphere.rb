@@ -92,7 +92,7 @@ class Vsphere < Mkvm
         options[:domain] = x
       end
       opts.on( '--annotation ANNOTATION', "Annotation for VM (#{options[:annotation]})") do |x|
-        options[:annotation] = x
+        options[:annotation] = x.to_s
       end
   end
 
@@ -174,6 +174,16 @@ The mapping looks something like:
       print 'Password: '
       options[:password] = STDIN.noecho(&:gets).chomp
       puts ''
+    end
+
+    if options[:annotation]
+      if not options[:annotation].is_a?(String)
+        abort "!! Invalid annotation !! Validate your annotation is a String. "
+      end
+
+      if options[:annotation].to_s.size < 1
+        abort "!! Invalid annotation !! Please provide an annotation string. "
+      end
     end
   end
 

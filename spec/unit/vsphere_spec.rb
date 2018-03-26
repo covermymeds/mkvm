@@ -12,8 +12,15 @@ describe Vsphere do
 
   context 'When invalid options are given' do
     context 'When password is invalid' do
-      it 'should raise an exception' do
+      it 'should raise a SystemExit exception' do
         options = invalid_subnet_options
+        expect {subject.validate(options)}.to raise_error(SystemExit)
+      end
+    end
+
+    context 'When annotation is invalid' do
+      it 'should raise a SystemExit exception' do
+        options = invalid_annotation_options
         expect {subject.validate(options)}.to raise_error(SystemExit)
       end
     end
@@ -61,5 +68,11 @@ end
 def invalid_subnet_options
   options = valid_options
   options[:subnet] = "derp"
+  return options
+end
+
+def invalid_annotation_options
+  options = valid_options
+  options[:annotation] = ''
   return options
 end
