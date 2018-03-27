@@ -24,43 +24,86 @@ describe Vsphere do
         expect {subject.validate(options)}.to raise_error(SystemExit)
       end
     end
+
+    describe '#optparse' do
+      # TODO we should save the current ARGV and replace it when done.
+      # It's best to keep things how we found them.
+      ARGV.shift while !ARGV.empty?
+      ARGV << 'ruby ./fakefile'
+
+      context 'when no "annotation" argument is passed' do
+        it 'does not set the annotation on options' do
+          ARGV << '--user'
+          ARGV << 'test-user'
+          options = {}
+          OptionParser.new do |opts|
+            subject.optparse(opts, options)
+          end.parse!
+          puts "options: #{options}"
+          expect { options.fetch(:annotation) }.to raise_error(KeyError)
+        end
+      end
+      context 'when the "annotation" argument is passed' do
+        it 'sets the annotation on options' do
+          ARGV << '--annotation'
+          ARGV << 'test-annotation'
+
+          options = {}
+          OptionParser.new do |opts|
+            subject.optparse(opts, options)
+          end.parse!
+          puts "options: #{options}"
+          expect { options.fetch(:annotation) }.to_not raise_error
+          expect(options[:annotation]).to eq 'test-annotation'
+        end
+      end
+    end
+    context 'when CLI options are missing the "annotation"' do
+
+
+      it 'should not set the "annotation" key on options' do
+
+      end
+    end
+
+    context 'when '
   end
 end
 
 #Helper Methods
 def valid_options
-  options = {:debug=>false,
-   :username=>"Administrator",
-   :insecure=>true,
-   :make_vm=>true,
-   :host=>"vcenter.example.com",
-   :dc=>"Primary",
-   :cluster=>"Production",
-   :ds_regex=>"encrypted",
-   :netmask=>"255.255.255.0",
-   :dns=>"192.168.1.1, 192.168.1.2",
-   :app_env=>"production",
-   :domain=>"example.com",
-   :power_on=>true,
-   :sat_url=>"https://satellite.example.com/rpc/api",
-   :sat_username=>"Admin",
-   :puppetmaster_url=>"https://puppetmaster.example.com",
-   :puppetdb_url=>"https://puppetdb.example.com",
-   :puppet_env=>"Production",
-   :puppet_cert=>"/path/to/cert.pem",
-   :puppet_key=>"/path/to/key.pem",
-   :add_uri=>"https://ipam.dev/api/getFreeIP.php?subnet=SUBNET&apiapp=APIAPP&apitoken=APITOKEN&host=HOSTNAME&user=USER",
-   :del_uri=>"https://ipam.dev/api/removeHost.php?host=HOSTNAME&apiapp=APIAPP&apitoken=APITOKEN",
-   :apiapp=>"ipamip",
-   :apitoken=>"inserttoken",
-   :shinken_url=>"https://shinken.example.com",
-   :dvswitch=>{"dc1"=>"dvswitch1uuid", "dc2"=>"dvswitch2uuid"},
-   :network=>{"192.168.20.0"=>{"name"=>"Production", "portgroup"=>"dvportgroup1-number"},
-                 "192.168.30.0"=>{"name"=>"DMZ", "portgroup"=>"dvportgroup2-number"}},
-   :annotation=>"env-appserver",
-   :subnet=>"192.168.20.0",
-   :template=>'small',
-   :password=>'insertpassword'}
+  options = {:debug => false,
+             :username => "Administrator",
+             :insecure => true,
+             :make_vm => true,
+             :host => "vcenter.example.com",
+             :dc => "Primary",
+             :cluster => "Production",
+             :ds_regex => "encrypted",
+             :netmask => "255.255.255.0",
+             :dns => "192.168.1.1, 192.168.1.2",
+             :app_env => "production",
+             :domain => "example.com",
+             :power_on => true,
+             :sat_url => "https://satellite.example.com/rpc/api",
+             :sat_username => "Admin",
+             :puppetmaster_url => "https://puppetmaster.example.com",
+             :puppetdb_url => "https://puppetdb.example.com",
+             :puppet_env => "Production",
+             :puppet_cert => "/path/to/cert.pem",
+             :puppet_key => "/path/to/key.pem",
+             :add_uri => "https://ipam.dev/api/getFreeIP.php?subnet=SUBNET&apiapp=APIAPP&apitoken=APITOKEN&host=HOSTNAME&user=USER",
+             :del_uri => "https://ipam.dev/api/removeHost.php?host=HOSTNAME&apiapp=APIAPP&apitoken=APITOKEN",
+             :apiapp => "ipamip",
+             :apitoken => "inserttoken",
+             :shinken_url => "https://shinken.example.com",
+             :dvswitch => {"dc1" => "dvswitch1uuid", "dc2" => "dvswitch2uuid"},
+             :network => {"192.168.20.0" => {"name" => "Production", "portgroup" => "dvportgroup1-number"},
+                          "192.168.30.0" => {"name" => "DMZ", "portgroup" => "dvportgroup2-number"}},
+             :annotation => "env-appserver",
+             :subnet => "192.168.20.0",
+             :template => 'small',
+             :password => 'insertpassword'}
 
   return options
 end
