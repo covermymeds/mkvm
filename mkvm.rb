@@ -65,7 +65,6 @@ opts.on('-h', '--help', 'This help message') do
 end
 
 opts.parse!
-puts options.inspect
 
 
 # What's left over should be the hostname.
