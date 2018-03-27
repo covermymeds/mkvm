@@ -2,7 +2,7 @@ require 'rspec'
 require_relative '../../lib/mkvm'
 require_relative '../../lib/vsphere'
 
-describe Vsphere do
+describe Vsphere, '#validate' do
   context 'When valid options are given' do
     it 'should not raise exception' do
       options = valid_options
@@ -25,38 +25,36 @@ describe Vsphere do
       end
     end
   end
+end
 
-  describe '#optparse' do
-    # TODO we should save the current ARGV and replace it when done.
-    # It's best to keep things how we found them.
-    ARGV.shift while !ARGV.empty?
-    ARGV << 'ruby ./fakefile'
+describe Vsphere, '#optparse' do
+  # TODO we should save the current ARGV and replace it when done.
+  # It's best to keep things how we found them.
+  ARGV.shift while !ARGV.empty?
+  ARGV << 'ruby ./fakefile'
 
-    context 'when no "annotation" argument is passed' do
-      it 'does not set the annotation on options' do
-        ARGV << '--user'
-        ARGV << 'test-user'
-        options = {}
-        OptionParser.new do |opts|
-          subject.optparse(opts, options)
-        end.parse!
-        puts "options: #{options}"
-        expect { options.fetch(:annotation) }.to raise_error(KeyError)
-      end
+  context 'when no "annotation" argument is passed' do
+    it 'does not set the annotation on options' do
+      ARGV << '--user'
+      ARGV << 'test-user'
+      options = {}
+      OptionParser.new do |opts|
+        subject.optparse(opts, options)
+      end.parse!
+      expect { options.fetch(:annotation) }.to raise_error(KeyError)
     end
-    context 'when the "annotation" argument is passed' do
-      it 'sets the annotation on options' do
-        ARGV << '--annotation'
-        ARGV << 'test-annotation'
+  end
+  context 'when the "annotation" argument is passed' do
+    it 'sets the annotation on options' do
+      ARGV << '--annotation'
+      ARGV << 'test-annotation'
 
-        options = {}
-        OptionParser.new do |opts|
-          subject.optparse(opts, options)
-        end.parse!
-        puts "options: #{options}"
-        expect { options.fetch(:annotation) }.to_not raise_error
-        expect(options[:annotation]).to eq 'test-annotation'
-      end
+      options = {}
+      OptionParser.new do |opts|
+        subject.optparse(opts, options)
+      end.parse!
+      expect { options.fetch(:annotation) }.to_not raise_error
+      expect(options[:annotation]).to eq 'test-annotation'
     end
   end
 end
