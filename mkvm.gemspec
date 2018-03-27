@@ -18,6 +18,8 @@ Gem::Specification.new do |spec|
   spec.executables   = ["mkvm.rb", "rmvm.rb", "rename.rb"]
   spec.require_paths = ["lib", "plugins" ]
 
+  spec.add_dependency 'rake'
   spec.add_dependency 'rbvmomi', '>= 1.8.2'
+  spec.add_dependency 'rspec', '~> 3.0'
 
 end

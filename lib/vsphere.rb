@@ -91,6 +91,9 @@ class Vsphere < Mkvm
       opts.on( '--domain DOMAIN', "DNS domain to append to hostname (#{options[:domain]})") do |x|
         options[:domain] = x
       end
+      opts.on( '--annotation ANNOTATION', "Annotation for VM (#{options[:annotation]})") do |x|
+        options[:annotation] = x.to_s
+      end
   end
 
   # this helper method converts unit sizes from human readable to machine usable
@@ -172,6 +175,16 @@ The mapping looks something like:
       options[:password] = STDIN.noecho(&:gets).chomp
       puts ''
     end
+
+    if options[:annotation]
+      if not options[:annotation].is_a?(String)
+        abort "!! Invalid annotation !! Validate your annotation is a String. "
+      end
+
+      if options[:annotation].to_s.size < 1
+        abort "!! Invalid annotation !! Please provide an annotation string. "
+      end
+    end
   end
 
   def execute options
@@ -203,7 +216,7 @@ The mapping looks something like:
     source_vm = dc.find_vm("#{options[:source_vm]}") or abort "Failed to find source vm: #{options[:source_vm]}"
     clone_spec = generate_clone_spec(source_vm.config, dc, rp, options[:cpu], options[:memory],
                                      ds_name, options[:network][options[:subnet]]['name'],
-                                     cluster, options[:disks], options[:extra], options[:virt])
+                                     cluster, options[:disks], options[:extra], options[:virt], options[:annotation])
 
     clone_spec.customization = ip_settings(options[:ip], options[:gateway], options[:netmask], options[:domain], options[:dns], options[:hostname])
 
@@ -253,7 +266,7 @@ The mapping looks something like:
   end
 
    # Populate the VM clone specification
-  def generate_clone_spec(source_config, dc, resource_pool, cpus, memory, ds_name, network, cluster, disks, extra, virt)
+  def generate_clone_spec(source_config, dc, resource_pool, cpus, memory, ds_name, network, cluster, disks, extra, virt, annotation)
 
     datastore = dc.datastore.find { |ds| ds.name == ds_name }
     clone_spec = RbVmomi::VIM.VirtualMachineCloneSpec(:location => RbVmomi::VIM.VirtualMachineRelocateSpec(:pool => resource_pool, :datastore => datastore),
@@ -270,6 +283,10 @@ The mapping looks something like:
     clone_spec.config.numCPUs  = Integer(cpus)
     clone_spec.config.memoryMB = Integer(memory)
     clone_spec.config.nestedHVEnabled = !!virt
+
+    #Annotation
+    clone_spec.config.annotation = annotation
+
     # Multiple disk support
     controllerkey = 100
     # start on sdb

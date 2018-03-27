@@ -66,6 +66,7 @@ end
 
 opts.parse!
 
+
 # What's left over should be the hostname.
 # But let's be cautious
 if ARGV.count == 0
@@ -81,6 +82,7 @@ options[:hostname] = ARGV[0].downcase
 # so that they might set values required by the core modules
 # sort was added below to insure autoip runs before ip in plugins
 plugins.sort.each { |p| Kernel.const_get(p).pre_validate(options) }
+
 vsphere.validate(options)
 
 # and we let plugins run another validation after the core modules
