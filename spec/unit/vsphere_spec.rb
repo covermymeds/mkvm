@@ -28,10 +28,13 @@ describe Vsphere, '#validate' do
 end
 
 describe Vsphere, '#optparse' do
-  # TODO we should save the current ARGV and replace it when done.
   # It's best to keep things how we found them.
-  ARGV.shift while !ARGV.empty?
-  ARGV << 'ruby ./fakefile'
+  old_args = ARGV.dup
+
+  before(:each) do
+    ARGV.clear
+    ARGV << 'ruby ./fakefile'
+  end
 
   context 'when no "annotation" argument is passed' do
     it 'does not set the annotation on options' do
@@ -56,6 +59,12 @@ describe Vsphere, '#optparse' do
       expect { options.fetch(:annotation) }.to_not raise_error
       expect(options[:annotation]).to eq 'test-annotation'
     end
+  end
+
+  # Reset the ARGV once we are done
+  after(:all) do
+    ARGV.clear
+    ARGV.concat(old_args)
   end
 end
 
