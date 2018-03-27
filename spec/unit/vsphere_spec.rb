@@ -10,17 +10,17 @@ describe Vsphere, '#validate' do
     end
   end
 
-  context 'When invalid options are given' do
-    context 'When password is invalid' do
+  context 'When invalid annotation option is given' do
+    context 'When annotation is an empty String' do
       it 'should raise a SystemExit exception' do
-        options = invalid_subnet_options
+        options = invalid_annotation_options_empty_string
         expect {subject.validate(options)}.to raise_error(SystemExit)
       end
     end
 
-    context 'When annotation is invalid' do
+    context 'When annotation is not a String' do
       it 'should raise a SystemExit exception' do
-        options = invalid_annotation_options
+        options = invalid_annotation_options_not_string
         expect {subject.validate(options)}.to raise_error(SystemExit)
       end
     end
@@ -106,14 +106,15 @@ def valid_options
   return options
 end
 
-def invalid_subnet_options
+
+def invalid_annotation_options_empty_string
   options = valid_options
-  options[:subnet] = "derp"
+  options[:annotation] = ''
   return options
 end
 
-def invalid_annotation_options
+def invalid_annotation_options_not_string
   options = valid_options
-  options[:annotation] = ''
+  options[:annotation] = 123
   return options
 end
