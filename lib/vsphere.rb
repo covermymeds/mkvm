@@ -15,6 +15,7 @@ class Vsphere < Mkvm
       :username => ENV['USER'],
       :insecure => true,
       :make_vm => true,
+      :wait => 300,    # 5 mins
     }
   end
 
@@ -93,6 +94,9 @@ class Vsphere < Mkvm
       end
       opts.on( '--annotation ANNOTATION', "Annotation for VM (#{options[:annotation]})") do |x|
         options[:annotation] = x.to_s
+      end
+      opts.on( '--wait SECONDS', "Time to wait for IP to be assigned to VM (#{options[:wait]})" ) do |x|
+        options[:wait] = x.to_i.abs
       end
   end
 
@@ -222,7 +226,13 @@ The mapping looks something like:
 
     if options[:make_vm]
       debug( 'INFO', "Cloning #{options[:source_vm]} to new VM: #{options[:hostname]}" ) if options[:debug]
-      source_vm.CloneVM_Task(:folder => vmFolder, :name => options[:hostname], :spec => clone_spec).wait_for_completion
+      new_vm = source_vm.CloneVM_Task(:folder => vmFolder, :name => options[:hostname], :spec => clone_spec).wait_for_completion
+      if new_vm
+        wait_for_ip(new_vm, options[:wait], options)
+      else
+        puts "ERROR: unable to create new VM"
+        exit 1
+      end
     else
       puts "*** NOOP *** Cloning #{options[:source_vm]} to new VM: #{options[:hostname]}"
       exit
@@ -235,6 +245,22 @@ The mapping looks something like:
       puts "Failed to create anti-affinity rule for #{options[:hostname]}"
     end
 
+  end
+
+  # Wait for the ip address to be assigned by VM before returning
+  def wait_for_ip(new_vm, wait, options)
+    puts "Waiting for IP address to be obtained by VM..."
+    poll_interval = 10
+    while wait > 0 && new_vm.guest_ip.nil?
+      debug( 'INFO', "Waiting for IP... #{wait} seconds remain" ) if options[:debug]
+      wait = wait - poll_interval
+      sleep poll_interval
+    end
+    if wait <= 0
+      puts "ERROR: unable to obtain IP address for VM: #{options[:hostname]}"
+    else
+      puts "Obtained IP address: #{new_vm.guest_ip}"
+    end
   end
 
   def vc_affinity(dc, cluster, folder, host, domain)
