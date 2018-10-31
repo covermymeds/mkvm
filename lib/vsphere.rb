@@ -251,12 +251,12 @@ The mapping looks something like:
   def wait_for_ip(new_vm, wait, options)
     puts "Waiting for IP address to be obtained by VM..."
     poll_interval = 10
-    while wait > 0 && new_vm.guest_ip.nil?
+    while new_vm.guest_ip.nil? && wait > 0
       debug( 'INFO', "Waiting for IP... #{wait} seconds remain" ) if options[:debug]
       wait = wait - poll_interval
       sleep poll_interval
     end
-    if wait <= 0
+    if new_vm.guest_ip.nil?
       puts "ERROR: unable to obtain IP address for VM: #{options[:hostname]}"
     else
       puts "Obtained IP address: #{new_vm.guest_ip}"
