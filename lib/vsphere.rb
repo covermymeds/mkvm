@@ -201,7 +201,7 @@ The mapping looks something like:
     
     #select the vsphere cluster to use
     if options[:cluster].nil?
-      cluster = dc.hostFolder.children.find { |x| x.name =~ /#{options[:cluster_regex]}/ }
+      cluster = dc.hostFolder.children.find { |x| x.name =~ /#{options[:cluster_regex]}/ } or abort "vSphere cluster regex #{options[:cluster_regex]} not found"
     else
       cluster = dc.hostFolder.children.find { |x| x.name == options[:cluster] } or abort "vSphere cluster #{options[:cluster]} not found"
     end 
