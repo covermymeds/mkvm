@@ -35,6 +35,9 @@ class Vsphere < Mkvm
       opts.on( '-C', '--cluster CLUSTER', "vSphere cluster (#{options[:cluster]})") do |x|
         options[:cluster] = x
       end
+      opts.on( '--clusterregex CLUSTER', "vSphere cluster regex (#{options[:cluster_regex]})") do |x|
+        options[:cluster_regex] = x
+      end
       opts.on( '-F', '--folder FOLDER', "vSphere vm folder (#{options[:folder]})") do |x|
         options[:folder] = x
       end
@@ -132,6 +135,9 @@ class Vsphere < Mkvm
 
     abort 'Either --datastore or --dsregex is required' if options[:datastore].nil? and options[:ds_regex].nil?
 
+    abort 'Either --cluster or --clusterregex is required' if options[:cluster].nil? and options[:cluster_regex].nil?
+
+
     if options[:template]
       options[:cpu], options[:memory] = @templates[options[:template]]
     end
@@ -192,9 +198,15 @@ The mapping looks something like:
     vim = RbVmomi::VIM.connect( { :user => options[:username], :password => options[:password], :host => options[:host], :insecure => options[:insecure] } ) or abort $!
     dc = vim.serviceInstance.find_datacenter(options[:dc]) or abort "vSphere data center #{options[:dc]} not found"
     debug( 'INFO', "Connected to datacenter #{options[:dc]}" ) if options[:debug]
-    cluster = dc.hostFolder.children.find { |x| x.name == options[:cluster] } or abort "vSphere cluster #{options[:cluster]} not found"
+    
+    #select the vsphere cluster to use
+    if options[:cluster].nil?
+      cluster = dc.hostFolder.children.find { |x| x.name =~ /#{options[:cluster_regex]}/ } or abort "vSphere cluster regex #{options[:cluster_regex]} not found"
+    else
+      cluster = dc.hostFolder.children.find { |x| x.name == options[:cluster] } or abort "vSphere cluster #{options[:cluster]} not found"
+    end 
     rp = cluster.resourcePool
-    debug( 'INFO', "Found VMware cluster #{options[:cluster]}" ) if options[:debug]
+    debug( 'INFO', "Found VMware cluster #{cluster}" ) if options[:debug]
 
     #select the datastore to use
     if options[:datastore].nil?
