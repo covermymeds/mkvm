@@ -1,7 +1,7 @@
 :username: Administrator
 :host: vcenter.example.com
 :dc: Primary
-:clusterregex: Production
+:cluster_regex: Production
 :insecure: true
 :ds_regex: encrypted
 :netmask: 255.255.255.0
