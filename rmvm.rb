@@ -19,6 +19,7 @@ require "json"
 
 require_relative "lib/ipam"
 require_relative "lib/jira"
+require_relative "lib/okta_asa"
 
 # establish a couple of sane default values
 options = {
@@ -76,27 +77,15 @@ optparse = OptionParser.new do|opts|
   end
   opts.separator ""
 
-  opts.separator "Satellite options:"
-  opts.on("--no-satellite", "Do not remove from Satellite") do |x|
-    options[:satellite] = false
+  opts.separator "Okta ASA options:"
+  opts.on("--asa-team-name", "Okta ASA team name (#{options[:asa_team_name]})") do |x|
+    options[:asa_team_name] = x
   end
-  opts.on("--sat-script SAT_SCRIPT", "Full path to Satellite managment script") do |x|
-    options[:sat_script] = x
+  opts.on("--asa-key-id", "Okta ASA API key ID (#{options[:asa_key_id]})") do |x|
+    options[:asa_key_id] = x
   end
-  opts.on("--sat-url URL", "Satellite server URL (#{options[:sat_url]})") do |x|
-    options[:sat_url] = x
-  end
-  opts.on("--sat-org ORG", "Satellite organization") do |x|
-    options[:sat_org] = x
-  end
-  opts.on("--sat-username USERNAME", "Satellite user name (#{options[:sat_username] or options[:username]})") do |x|
-    options[:sat_username] = x
-  end
-  opts.on("--sat-password PASSWORD", "Satellite password") do |x|
-    options[:sat_password] = x
-  end
-  opts.on("--vagrant", "Is this a vagrant template VM?") do |x|
-    options[:vagrant] = true
+  opts.on("--asa-key-secret", "Okta ASA API key secret (#{options[:asa_key_secret]})") do |x|
+    options[:asa_key_secret] = x
   end
   opts.separator ""
 
@@ -252,24 +241,6 @@ if options[:vmware]
   end
 end
 
-if options[:satellite]
-  puts "Removing #{options[:fqdn]} from Satellite...."
-  vagrant_options = options[:vagrant] ? options[:sat_vagrant_args] : ""
-  begin
-    output = `#{options[:sat_script]} -u #{options[:sat_username]} -p #{options[:sat_password]} --url #{options[:sat_url]} --organization #{options[:sat_org]} delete #{vagrant_options} #{options[:fqdn]}`
-    if $?.exitstatus > 0
-      # Command failed
-      puts output
-      exit_code += 1
-    else
-      puts output
-    end
-  rescue
-    puts "Something went wrong with the satellite removal command"
-    exit_code += 1
-  end
-end
-
 if options[:puppet]
   puts "Removing #{options[:fqdn]} from Puppet...."
 
@@ -401,7 +372,7 @@ if options[:ipam]
 end
 
 if options[:ipam]
-  puts "Removing #{options[:fqdn]} from IPAM...."
+  puts "Removing #{options[:fqdn]} from IPAM..."
 
   # Send delete request to phpipam system
   uri = options[:del_uri].gsub(/APIAPP|APITOKEN|HOSTNAME/, {"APIAPP" => options[:apiapp], "APITOKEN" => options[:apitoken], "HOSTNAME" => options[:fqdn],})
@@ -420,6 +391,8 @@ if options[:ipam]
   end
 end
 
+puts "Removing #{options[:fqdn]} from Okta ASA..."
+exit_code += okta_asa_delete(options[:asa_team_name], options[:asa_key_id], options[:asa_key_secret], options[:fqdn])
 
 msg_body = <<END_MSG
 From: #{options[:mail_from]}
