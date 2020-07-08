@@ -57,6 +57,7 @@ def okta_asa_delete(team_name, key_id, key_secret, hostname)
 
 
   # Delete the system
+  delete_errors = 0
   host_list.each do |host|
     delete_uri = URI.parse("#{okta_url}/#{team_name}/projects/#{host['project_name']}/servers/#{host['id']}")
 
@@ -77,9 +78,9 @@ def okta_asa_delete(team_name, key_id, key_secret, hostname)
       puts "ERROR: Unable to delete server '#{hostname}' from Okta ASA. API Response:"
       puts response.body
       
-      return 1
+      delete_errors += 1
     end
   end
 
-  return 0
+  return delete_errors
 end

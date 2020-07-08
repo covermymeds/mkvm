@@ -7,7 +7,7 @@ Gem::Specification.new do |spec|
   spec.name          = "mkvm"
   spec.version       = MKVM::VERSION
   spec.authors       = ["CoverMyMeds"]
-  spec.email         = ["smerrill@covermymeds.com", "dsajner@covermymeds.com", "nchowning@covermymeds.com"]
+  spec.email         = ["smerrill@covermymeds.com", "nchowning@covermymeds.com"]
   spec.summary       = %q{Interact with VMWare to build or remove VMs}
   spec.description   = %q{Wraps rbvmomi to interact with the VMWare API to build or remove VMs.}
   spec.homepage      = "https://github.com/covermymeds/mkvm"
