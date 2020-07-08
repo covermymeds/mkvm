@@ -89,6 +89,30 @@ optparse = OptionParser.new do|opts|
   end
   opts.separator ""
 
+  opts.separator "Satellite options:"
+  opts.on("--no-satellite", "Do not remove from Satellite") do |x|
+    options[:satellite] = false
+  end
+  opts.on("--sat-script SAT_SCRIPT", "Full path to Satellite managment script") do |x|
+    options[:sat_script] = x
+  end
+  opts.on("--sat-url URL", "Satellite server URL (#{options[:sat_url]})") do |x|
+    options[:sat_url] = x
+  end
+  opts.on("--sat-org ORG", "Satellite organization") do |x|
+    options[:sat_org] = x
+  end
+  opts.on("--sat-username USERNAME", "Satellite user name (#{options[:sat_username] or options[:username]})") do |x|
+    options[:sat_username] = x
+  end
+  opts.on("--sat-password PASSWORD", "Satellite password") do |x|
+    options[:sat_password] = x
+  end
+  opts.on("--vagrant", "Is this a vagrant template VM?") do |x|
+    options[:vagrant] = true
+  end
+  opts.separator ""
+
   opts.separator "Puppet options:"
   opts.on("--no-puppet", "Do not remove from puppet") do |x|
     options[:puppet] = false
@@ -237,6 +261,24 @@ if options[:vmware]
     puts "#{options[:fqdn]} has been destroyed/removed from VMware."
   rescue Exception => msg
     puts "Failed to destroy #{options[:fqdn]} from VMware: #{msg}."
+    exit_code += 1
+  end
+end
+
+if options[:satellite]
+  puts "Removing #{options[:fqdn]} from Satellite...."
+  vagrant_options = options[:vagrant] ? options[:sat_vagrant_args] : ""
+  begin
+    output = `#{options[:sat_script]} -u #{options[:sat_username]} -p #{options[:sat_password]} --url #{options[:sat_url]} --organization #{options[:sat_org]} delete #{vagrant_options} #{options[:fqdn]}`
+    if $?.exitstatus > 0
+      # Command failed
+      puts output
+      exit_code += 1
+    else
+      puts output
+    end
+  rescue
+    puts "Something went wrong with the satellite removal command"
     exit_code += 1
   end
 end
