@@ -42,7 +42,7 @@ def okta_asa_delete(team_name, key_id, key_secret, hostname)
   response = http.request(request)
 
   if response.code != '200'
-    puts "ERROR: Unable to find server '#{hostname}' from Okta ASA. API Response:"
+    puts "ERROR: Okta ASA API returned an error when attempting to find server '#{hostname}'. API resonse:"
     puts response.body
 
     return 1
