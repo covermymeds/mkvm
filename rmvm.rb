@@ -19,6 +19,7 @@ require "json"
 
 require_relative "lib/ipam"
 require_relative "lib/jira"
+require_relative "lib/okta_asa"
 
 # establish a couple of sane default values
 options = {
@@ -73,6 +74,18 @@ optparse = OptionParser.new do|opts|
   end
   opts.on( '-F', '--folder FOLDER', "vSphere vm folder (#{options[:folder]})") do |x|
     options[:folder] = x
+  end
+  opts.separator ""
+
+  opts.separator "Okta ASA options:"
+  opts.on("--asa-team-name", "Okta ASA team name (#{options[:asa_team_name]})") do |x|
+    options[:asa_team_name] = x
+  end
+  opts.on("--asa-key-id", "Okta ASA API key ID (#{options[:asa_key_id]})") do |x|
+    options[:asa_key_id] = x
+  end
+  opts.on("--asa-key-secret", "Okta ASA API key secret (#{options[:asa_key_secret]})") do |x|
+    options[:asa_key_secret] = x
   end
   opts.separator ""
 
@@ -401,7 +414,7 @@ if options[:ipam]
 end
 
 if options[:ipam]
-  puts "Removing #{options[:fqdn]} from IPAM...."
+  puts "Removing #{options[:fqdn]} from IPAM..."
 
   # Send delete request to phpipam system
   uri = options[:del_uri].gsub(/APIAPP|APITOKEN|HOSTNAME/, {"APIAPP" => options[:apiapp], "APITOKEN" => options[:apitoken], "HOSTNAME" => options[:fqdn],})
@@ -420,6 +433,8 @@ if options[:ipam]
   end
 end
 
+puts "Removing #{options[:fqdn]} from Okta ASA..."
+exit_code += okta_asa_delete(options[:asa_team_name], options[:asa_key_id], options[:asa_key_secret], options[:fqdn])
 
 msg_body = <<END_MSG
 From: #{options[:mail_from]}
