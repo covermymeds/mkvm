@@ -31,6 +31,7 @@ options = {
   :puppet_env => "Production",
   :ipam       => true,
   :shinken    => true,
+  :datadog    => true,
   :vagrant    => false,
 }
 
@@ -175,6 +176,17 @@ optparse = OptionParser.new do|opts|
     options[:shinken_password] = x
   end
 
+  opts.separator "Datadog options:"
+  opts.on("--no-datadog", "Do not schedule a Datadog downtime for this host") do |x|
+    options[:datadog] = false
+  end
+  opts.on("--datadog-api-key DD_API_KEY", "Datadog API Key (#{options[:dd_api_key]})") do |x|
+    options[:dd_api_key] = x
+  end
+  opts.on("--datadog-app-key DD_APP_KEY", "Datadog APP Key (#{options[:dd_app_key]})") do |x|
+    options[:dd_app_key] = x
+  end
+
   opts.separator "Jira options:"
   opts.on("--jira-username USERNAME", "Username for Jira (#{options[:jira_username]})") do |x|
     options[:jira_username] = x
@@ -233,9 +245,9 @@ if options[:vmware]
   VIM = RbVmomi::VIM
   vim = VIM.connect( { :user => options[:username], :password => options[:password], :host => options[:host], :insecure => options[:insecure] } ) or abort $!
   dc = vim.serviceInstance.find_datacenter(options[:dc]) or abort "vSphere data center #{options[:dc]} not found"
-  
+
   debug( "INFO", "Connected to datacenter #{options[:dc]}" )
-  
+
   if options[:folder]
     vmFolder = dc.vmFolder.children.find { |x| x.name == options[:folder] } or abort "vSphere vmFolder #{options[:folder]} not found"
   else
@@ -244,7 +256,7 @@ if options[:vmware]
 
   vm = vmFolder.find(options[:fqdn]) or abort "Unable to locate #{options[:fqdn]} in data center #{options[:dc]}"
   pwrs = vm.runtime.powerState
-  
+
   if pwrs == "poweredOn"
     puts "Powering off #{options[:fqdn]}"
     begin
@@ -254,7 +266,7 @@ if options[:vmware]
       exit_code += 1
     end
   end
-  
+
   puts "Destroying #{options[:fqdn]}"
   begin
     vm.Destroy_Task.wait_for_completion
@@ -512,6 +524,57 @@ if options[:shinken]
   end
 
   puts "Shinken downtime scheduled"
+end
+
+if options[:datadog]
+  puts "Scheduling downtime for #{options[:hostname]} in Datadog...."
+
+  # make sure Datadog API & APP keys are provided
+  if !options[:dd_api_key] || !options[:dd_app_key]
+    puts 'Please provide --datadog-api-key DD_API_KEY and --datadog-app-key DD_APP_KEY!'
+    exit exit_code + 1
+  end
+
+  # Downtime will be scheduled starting now & ending in 25 hours. (It took datadog 24 hours to totally remove a host from all metrics)
+  downtime_start = Time.now.to_i
+  downtime_end = downtime_start + 3600 * 25
+
+  datadog_url = URI.parse("https://api.datadoghq.com/api/v1/downtime")
+
+  # Setup http object
+  http = Net::HTTP.new(datadog_url.host, 443)
+  http.use_ssl = true
+
+  # SCHEDULE DOWNTIME
+  request = Net::HTTP::Post.new(datadog_url.path, initheader = {
+    'Content-Type' => 'application/json',
+    'DD-API-KEY' => options[:dd_api_key],
+    'DD-APPLICATION-KEY' => options[:dd_app_key]
+  })
+  request.body = {
+    'message' => "Decomming #{options[:fqdn]} by rmvm",
+    'end' => downtime_end,
+    'scope' => ["host:#{options[:fqdn]}"]
+  }.to_json
+
+  response = http.request(request)
+  if not response.code.start_with? "2"
+    puts "Unable to downtime '#{options[:fqdn]}'"
+    exit exit_code + 1
+  end
+
+  # Make sure that Datadog launched the command
+  begin
+    response_text = JSON.parse(response.body)["message"]
+    if not response_text.include? "Decomming #{options[:fqdn]}"
+      raise Exception.new("Command not launched")
+    end
+  rescue Exception => msg
+    puts "Unable to downtime '#{options[:fqdn]}'"
+    exit exit_code + 1
+  end
+
+  puts "Datadog downtime scheduled"
 end
 
 exit exit_code
