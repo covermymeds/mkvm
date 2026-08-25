@@ -4,7 +4,7 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 require 'mkvm/version'
 
 Gem::Specification.new do |spec|
-  spec.name          = "mkvm"
+  spec.name          = "covermymeds-mkvm"
   spec.version       = MKVM::VERSION
   spec.authors       = ["CoverMyMeds"]
   spec.email         = ["smerrill@covermymeds.com", "nchowning@covermymeds.com", "rwang@covermymeds.com"]
